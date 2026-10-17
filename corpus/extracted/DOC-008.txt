@@ -1,0 +1,502 @@
+[[page:1]]
+Availableonlineatwww.sciencedirect.com
+ProcediaComputerScience00(2026)000–000
+www.elsevier.com/locate/procedia
+30thInternationalConferenceonKnowledge-BasedandIntelligentInformation&Engineering
+Systems(KES2026)
+Chunking Methods on Retrieval-Augmented Generation –
+ff
+E ectiveness Evaluation Against Computational Cost and
+Limitations
+Mateusz S´migielskia, Michał Rajkowskia, Mateusz Zbrockia, Michał Bernacki-Jansona,
+Karol Kunickia, Julianna Godziszewskaa, Maciej Piaseckia, Konrad Wojtasika
+aDepartmentofArtificialIntelligence,FacultyofInformationandCommunicationTechnology,WrocławUniversityofScienceandTechnology,
+Wrocław50-370,Poland
+Abstract
+Retrieval-AugmentedGeneration(RAG)hasdemonstratedsignificantcapabilitiesinenhancingtheperformanceofLargeLanguage
+Models(LLMs).OneofthekeytasksinRAGsystemsisthechunkingprocess.Traditionally,fixed-sizechunkingandsemantic
+chunkinghavebeenthestandardapproaches.However,interestinchunkingstrategieshasbeenincreasing,leadingtoagrowing
+numberofproposedmethodsthatoftenclaimimprovedperformanceovertheseconventionaltechniques.Manyoftheseapproaches
+aretailoredtospecificusecasesanddatatypes,withlimitedevidenceoftheireffectivenessacrossdiversescenarios.Asaresult,it
+remainschallengingtodirectlycomparedifferenttechniquesandassesstheirrelativestrengths.Tothebestofourknowledge,this
+studyisthefirsttosystematicallyevaluatetheeffectivenessofawiderangeofchunkingmethodsandemphasizetheunderlying
+challengesofchunkingstrategiesinRAGsystems.Whilechunkingiscommonlytreatedasasimplepreprocessingstep,weshow
+thatitintroducesarangeofimpactfulandoftenoverlookedissues.
+©2026TheAuthors.PublishedbyElsevierB.V.
+ThisisanopenaccessarticleundertheCCBY-NC-NDlicense(http://creativecommons.org/licenses/by-nc-nd/4.0/)
+Peer-reviewunderresponsibilityofthescientificcommitteeoftheKESInternational.
+Keywords: LargeLanguageModels;RetrievalAugmentedGeneration;Chunkingmethods;
+1. Introduction
+Retrieval Augmented Generation (RAG) has been proposed as a response to several Large Language Models
+(LLMs) problems like accessing, manipulating and updating knowledge or providing provenance for their decision
+[16].AstandardRAGpipelineinitiallysplitsdocuments,especiallythelongerones,intosmallerunitscalledchunks.
+∗ Correspondingauthor.Tel.:+0-000-000-0000
+E-mailaddress:author@institute.xxx
+1877-0509©2026TheAuthors.PublishedbyElsevierB.V.
+ThisisanopenaccessarticleundertheCCBY-NC-NDlicense(http://creativecommons.org/licenses/by-nc-nd/4.0/)
+Peer-reviewunderresponsibilityofthescientificcommitteeoftheKESInternational.
+6202
+yaM
+03
+]LC.sc[
+1v18800.6062:viXra
+
+[[page:2]]
+2 Authorname/ProcediaComputerScience00(2026)000–000
+IdentifyingthechunksmostpertinenttoaqueryandsupplyingthemtotheLLM–theanswergeneratorshouldallow
+forobtaininganswersthatareaccurateandwellalignedwiththecontext.Chunksgranularityisoftenreportedtohave
+a notable influence on both the retrieval stage and generations tasks [29, 23]. Large chunks may contain irrelevant
+information,whilesmallchunksmaylackinformation,whichmayleadtohallucinationanddistracttheLLMability
+toextractaccuratekeyinformation[30].Additionally,[28]demonstratethatchunkingmethodssignificantlyimpact
+retrievalperformance,althoughtheirstudyevaluatesonlyalimitedsubsetofthemethods.Recently,theimportance
+ofchunkinghasbecomeincreasinglyrecognized,asevidencedbyemergingsurveysandbenchmarkingstudiesdedi-
+catedspecificallytodocumentsegmentationstrategies.Zhouetal.[36]highlightthediversityofdocumentchunking
+methodsindenseretrievalandemphasizetheneedforasystematictaxonomytounderstandtheirdesignspace.They
+categorize existing strategies based on segmentation approaches and embedding paradigms, providing a framework
+forcomparingandevaluatingchunkingtechniques.RenyiQuetal.[20]evaluatetheeffectivenessofsemanticchunk-
+inganddemonstratethatitscomputationalcostsarenotjustifiedbyconsistentperformancegains.Thestudycompares
+semanticchunkingwithsimplerfixed-lengthbaselinesandanalyzestrade-offsbetweenretrievalqualityandefficiency.
+Theresultsindicatethatwhilesemanticchunkingcanimprovecontextualcoherenceand,incertainscenarios,retrieval
+performance,thegainsarenotalwaysproportionaltotheincreasedcomputationalcost.Thissuggeststhattheadop-
+tionofadvancedchunkingtechniquesshouldbeguidedbypracticalconstraintsandsystemrequirements,especially
+inlarge-scaleorlatency-sensitiveapplications.Therelevanceofchunkinghasalsobeenexplicitlyacknowledgedin
+medicalapplications,whereretrievalerrorsmaydirectlyaffectclinicalreasoning.Inarecentstudy,Gomez-Cabello
+etal.[7]conductacomparativeevaluationofchunkingstrategieswithinRAGsystemsdesignedforclinicaldecision
+support.TheiranalysisdemonstratesthatchunkingmethodologysignificantlyinfluencesRAG-LLMperformancefor
+clinicaldecisionsupport.However,itshouldbenotedthatthescopeofchunkingstrategiesconsideredinthatstudy
+wasrelativelylimitedanddidnotcoverthefullspectrumofexistingsegmentationmethods.
+Ourcontributioninthisstudyisthreefold.First,wepresentanevaluationframeworkdesignedtoenablethesys-
+tematic comparisonof abroad range ofchunking methodsacross diverse tasksand datasettypes. Second, weiden-
+tify several practical and methodological challenges, referred to as efficiency limitations, including high chunking
+time and implementation fragility. Third, we show that more computationally expensive chunking methods do not
+yieldmeaningfuleffectivenessimprovementswhileintroducingsubstantiallyhighercomputationaloverhead.Tofa-
+cilitate systematic comparison and reproducible analysis, we provide a unified evaluation framework available at
+https://github.com/ApriiM/Chunking-Research.
+The remainder of this paper is structured as follows. First, we provide a review of existing document chunking
+methods, outlining their key characteristics and differences. We then describe the chunk preparation pipeline, the
+datasetselectionprocessandtheevaluationmethodologyemployedinourstudy.Thisisfollowedbyapresentation
+andanalysisoftheexperimentalresults,highlightingperformancedifferences,limitations,andinconsistenciesacross
+methods.Finally,wesummarizeourfindingsanddiscusspotentialdirectionsforfutureresearch.
+2. Relatedworks
+2.1. TheoreticalBackground
+Textsegmentation,oftenreferredtoaschunking,isapreprocessingstepthattransformsacontinuoustextstream
+intodiscretetextsegments.
+Formally, let us define a document D as a sequence of atomic units (tokens) D = ⟨t ,t ,...,t ⟩. The goal of the
+1 2 N
+chunkingfunction f istomapDintoasetofsegmentsC={c ,c ,...,c },suchthat:c =⟨t ,...,t ⟩.
+θ 1 2 m i starti endi
+Whilestrictlydisjointsegmentationispossible,overlappingsegmentationisoftenemployedtopreserveboundary
+contexts.
+TheGranularity-ContextTrade-off.Thefundamentaltheoreticalchallengeismaximizingtheprobabilityofgenerating
+thecorrectansweragivenaqueryq.Thisintroducesatrade-offbetweengranularityandcontextpreservation.
+ChunkingintheRAGPipeline.Inthevectorspacemodel,chunkingdefinesthegranularityofthesearchindex.LetE
+beanembeddingfunction(e.g.,BERT-basedencoder)mappingatextsegmenttoavectorv ∈ Rd [13].Theretrieval
+processidentifiesasubsetC ⊂Cbyminimizingthedistancemetric:
+retrieved
+
+[[page:3]]
+Authorname/ProcediaComputerScience00(2026)000–000 3
+(cid:32) (cid:33)
+E(q)·E(c)
+C =argtopk (1)
+retrieved ∥E(q)∥∥E(c)∥
+c∈C
+Ineffective segmentation leads to a mismatch in the embedding space, where the vector representation E(c) is
+dominatedbyirrelevantcontent,causingsemanticmisalignmentwiththequeryE(q)[22].
+2.2. Chunkingmethods
+The foundational strategies for text segmentation rely on surface-level features such as character count or punc-
+tuation, ignoring semantic content. Fixed-size Chunking divides text into segments of predetermined length, often
+withoverlappingwindowstoreducemid-sentencesplits,butitfrequentlyfragmentssemanticdependencies[2].Sen-
+tence/Paragraph Splitting preserves linguistic units like sentences or paragraphs, though chunk sizes vary widely,
+which can limit context for embedding models. Recursive Character Splitting uses a hierarchy of separators (para-
+graphs,lines,spaces)toiterativelysplitoversizedsegments,preservingsemanticcoherencewhenpossible.Entropy-
+Optimized Dynamic Text Segmentation (EDTS) determines chunk boundaries by analyzing lexical homogeneity via
+information entropy [27]. Semantic Chunking detects topic transitions by monitoring similarity drops between con-
+secutive sentences, aligning chunks with thematic coherence but incurring high computational cost and threshold
+selectionchallenges[12].
+LLM-basedchunkersleveragelanguagemodelstoproducesemanticallycoherenttextsegments.LumberChunker
+[6] splits documentsinto paragraphs and aggregatesthem into groups passed toan LLM, which identifiespoints of
+semanticshifttofinalizechunks.EvaluatedonGutenQA,itoutperformsSemantic,Recursive,andProposition-Level
+Chunking, but incurs high computational cost and is mainly suited for narrative texts. Propositions [3] move from
+chunk-leveltofiner-grainedatomicunitsencapsulatingdistinctfactoids,automaticallygeneratedviaapropositionizer
+andindexedforretrieval,relatedtopriornotionsoffactoidsandinformationnuggets[18,19].Pseudo-Instructionfor
+DocumentChunking[30]groupsconsecutivesentencesbasedonsemanticsimilaritytoadocumentsummary,forming
+alternatingsegmentsofhighlyrelatedversuslessrelatedcontent.HiChunk [17]detectsGlobalChunkPointswitha
+fine-tunedLLM,assigninghierarchicallevelsanditerativelyprocessingfragmentstohandlelongdocuments;afixed-
+size post-chunking step and Auto-Merge Retrieval improve uniformity and query-aligned retrieval. Logits-Guided
+Multi-GranularChunker(LGMGC)combinesLogits-GuidedChunking,whichusesLLMtokenprobabilitiestodetect
+semanticendpoints,withMulti-GranularChunking,recursivelysubdividingparentchunksintosmallerlevels,ranking
+allchunksbysimilaritytothequeryforfinalretrieval.Meta-Chunkingframework[33]introducesPerplexityChunking
+andMarginSamplingChunkingtoenhancethesemanticintegrityandcontextualcoherenceofchunks.Additionally,
+it integrates meta-chunking with dynamic merging and employs a global information compensation mechanism via
+hierarchicalsummarizationandmulti-stagechunkrewritingtorepairsemanticdiscontinuitiescausedbysegmentation.
+Adaptive approaches avoid committing to a single segmentation strategy. Mix-of-Granularity (MoG) [35] pre-
+segmentsdocumentsintomultiplegranularitylevels,andaquery-conditionedroutingmoduleselectswhichlevelto
+useforretrieval,aligningchunklengthandspecificitywithqueryneeds.MixturesofChunkingLearners(MoC)[32]
+combinesmultiplechunkingmodelstogeneratealternativesegmentations,afterwhicharouterselectsameta-chunker
+model based on chunk-quality metrics. The chosen SLM-based meta-chunker is trained to predict only structured
+chunk boundaries, masking central content during training, which allows efficient reconstruction from the original
+document while reducing computational overhead. This design highlights the complementary strengths of different
+chunkingstrategiesandimprovessemanticalignmentwithqueries.
+Clustering-based chunking treats segmentation as a grouping task, identifying semantically similar units rather
+thancuttingtextarbitrarily.SequentialHierarchicalAgglomerativeChunking[20]mergesadjacentsentencesbased
+onsemanticsimilaritywhileenforcingastrictstructuralconstraint,ensuringnarrativecontinuitywithouttuningpo-
+sitionalweightsorpredefiningthenumberofchunks.Max-MinSemanticChunking[14]usesagreedystrategythat
+sequentiallyaddssentencestoachunkonlyiftheirmaximumsimilarityexceedsanadaptivethresholdderivedfrom
+thechunk’sminimumcoherence,dynamicallycontrollingchunkgrowth.
+
+[[page:4]]
+4 Authorname/ProcediaComputerScience00(2026)000–000
+Recentstructuralchunkersleveragedocumentlayoutandelementtypes(titles,tables,figures)detectedbyvision
+modelsorobjectdetectorstoguidesegmentation.AutoChunker convertsdocumentsintoMarkdown,splitsintosen-
+tences, and usesan LLM to merge or discardsentences, producing hierarchical chunks basedon semantic structure
+[10].cAST segmentscodeusingAbstractSyntaxTrees,producingchunksalignedwithsyntacticboundaries[31].S2
+Chunkingbuildsaweightedgraphoverelementsusingspatialproximityandsemanticsimilarity,thenappliesspectral
+clusteringtoformchunks,enforcingamaximumtokenlengthperchunk[25].
+AninterestingalternativeapproachforchunkeddocumentcontextualizationisLateChunking[8].Insteadofadding
+extra context text to each chunk (e.g., summaries or surrounding passages), Late Chunking adds context at the em-
+beddinglevel.Along-contextembeddingmodelfirstencodestokensfromtheentiredocument,producingtoken-level
+representations. Then, chunk boundaries are computed on the original text, and the token embeddings within each
+chunkarepooledintoasinglevector.
+Additionally,someclassicalchunkingapproachesfromearlierNLPresearchhavebeenlargelyoverlookedinthe
+context of RAG. For instance, TextTiling [9] was an early method designed to detect topical shifts in texts based
+onlexicalcohesion.Despitetheirhistoricalrelevance,thesetechniquesarerarelyincludedinmodernevaluationsof
+chunkingstrategiesforRAG.Asaresult,itremainsunclearwhethersuchlinguisticallymotivatedapproachescould
+complementorevenoutperformcertaincontemporaryembedding-ormodel-basedchunkingmethods.
+3. Methodology
+Tocomprehensivelycoverdifferentapproachestochunking,weselectedadiversesetofchunkingmethodsrepre-
+sentingclassical(FixedSize,TextTiling),semantic(RecursiveSemantic),clustering-based(SequentialHACChunker,
+MaxMinChunker),graph-based(GraphSeg),andLLM-based(Lumberchunker)approaches.Defaulthyperparame-
+ters were taken from the original publications introducing the methods or, when not explicitly specified, from the
+corresponding official code repositories, with the exception of Lumberchunker, where we used GPT-OSS-20B. Ad-
+ditionally,wemodifiedtheTextTilingimplementationsothatchunkboundarieswerealignedtothenearestsentence
+rather than the nearest paragraph. Preliminary experiments indicated that paragraph-level normalization frequently
+resulted in no effective segmentation at all, often returning the original documents without introducing meaning-
+fulchunkboundariesacrossnearlyallevaluateddatasets.Incontrast,sentence-levelalignmentyieldedsubstantially
+more coherent and stable chunks. Since Fixed-Size Chunking is a simple heuristic rather than a formally grounded
+method, we used a chunk size of 512 (i.e. quite common choice) with an overlap of 50. Consequently, chunk sizes
+werenotnormalizedacrossmethods,aswewantedeachmethodtofreelyadaptitschunkingstrategyaccordingtoits
+designassumptions.Theresultingconfigurationswerethenusedtosegmentdocumentsacrosstheselecteddatasets.
+Datasetswereselectedtofulfillrequirementsandcoverawiderangeofdomainstoenablereliableevaluationofthe
+chunking methods. Additionally, due to the lack of sufficiently challenging datasets, we merged each of the three
+selecteddatasetsintoasinglemassivedocumenttocreatestress-testconditionsfortheevaluatedmethods(Appendix
+A). In order to cope with the complexity of the problem, we had to delimit the scope of our experimental study,
+imposing a 48-hour time limit for each chunking process, as we considered any method exceeding this duration to
+introduceexcessivecomputationaloverhead.Atthisstage,wealsoproposeaprincipledevaluationframeworkforthe
+qualitative analysis of the generated chunks that we include in our code repository. After preparing the chunks, we
+designedtwoexperimentscorrespondingtotwodifferentstagesoftheRAGpipeline.
+3.1. Evidenceretrieval
+Thefirstexperimentevaluatedevidenceretrieval,focusingontheeffectivenessofchunkingmethodsinretrieving
+relevant chunks for a given query. A chunk was considered relevant if it overlapped with the span of the extractive
+answer. In cases where no extractive answer was available, all chunks originating from the relevant document were
+treatedasrelevant.Toensureafaircomparisonacrossmethods,weevaluatedthenumberofrelevantchunksincluded
+inthetop-kretrievedresultsusingtheunifiedPolishInformationRetrievalBenchmark(PIRB)[4]withaccuracyand
+recallastheevaluationmetrics.Duringtheretrievalevaluationphase,thebge-m3modelwasemployedastheprimary
+retriever,whilebge-reranker-v2-m3servedasthererankingmodel.
+
+[[page:5]]
+Authorname/ProcediaComputerScience00(2026)000–000 5
+3.2. End-to-endRAGAnswerGeneration
+Thesecondexperimentevaluatedtheimpactofchunkingmethodsontheend-to-endRAGsystemandthequality
+ofLLM-generatedanswers.WeemployedtheGPT-OSS-20Bmodelasthegenerativemodel.Foreachquery,thetop-5
+retrievedchunkswereprovidedascontextualinputwitharestrictionto4,000tokens.Thegeneratedresponseswere
+then evaluated against ground-truth answers using an LLM-as-a-judge approach [34], with GPT-OSS-20B serving
+asthejudgemodel.Theevaluationwasconductedusingafive-pointLikertscale,wherescoresrangedfrom1(poor
+answerqualityandrelevance)to5(highlyaccurateandrelevantanswer).Theexperimentswereconductedonasubset
+of the original datasets due to missing answers in some datasets. Additionally, the TextTiling method was excluded
+fromthecomparisonasitreliedonamodifiedimplementationthatwasnotdirectlycomparabletotheotherchunking
+approachesunderaunifiedexperimentalsetup.
+4. ExperimentsandResults
+Foreachchunker,textsegmentationwasperformedonalldatasetsincludedinthestudy.Thesegmentationprocess
+was conducted in parallel on 20 nodes with the following hardware specifications: CPU: 2x Intel Xeon Platinum
+8462Y (32 cores, 2.8 GHz), GPU: 4x Nvidia H100 96GB, 16896 CUDA cores, 1980 MHz, RAM: 1006 GB 4800
+MT/sECCDDR5.So,approximately,eachwasrunon1/4ofanode.
+Table 1. Accuracy@5 for evidence retrieval. T - chunking procedure exceeded the allotted execution time; S - The underlying spaCy library
+triggeredanerrorduetoexcessivetemporarymemoryrequirements.
+Recursive Sequential
+Dataset DenseX semantic Fixed-size HAC TextTiling Max-min GraphSeg Lumberchunker
+GutenQA T 92.42 87.86 71.45 82.12 82.72 88.53 T
+GutenQA
+merged T 89.70 87.49 65.92 77.66 78.23 S T
+LiteraryQA T 87.59 85.91 75.73 82.81 83.40 S T
+NQ 97.33 99.00 98.00 99.00 99.00 99.00 98.67 T
+NovelQA T 91.61 90.10 82.90 88.07 88.53 S T
+PoQuAD 25.80 97.68 96.39 88.74 96.36 93.58 97.45 97.05
+PoQuAD
+merged T 93.11 94.67 88.86 91.74 93.62 S 97.48
+Qasper 49.55 49.97 51.00 51.27 50.52 51.48 49.62 50.10
+SQuAD 85.13 96.87 96.24 94.60 95.81 96.24 97.34 97.10
+TriviaQA 79.50 91.80 87.30 78.30 85.10 86.30 89.50 T
+TriviaQA
+merged 77.30 93.20 89.80 84.20 85.40 90.10 S T
+Average 69.10 89.36 87.71 80.09 84.96 85.75 86.85 85.44
+Tab. 1 and 2 present the results of the first experiment – evidence retrieval, respectively: Accuracy@5 and Re-
+call@10,acrossatotalof88experimentalconfigurations.Thebest-performingresultsforeachdatasetareinbold.
+Acrossexperiments,asubstantialnumberofconfigurationsdidnotproduceusableoutputs.Weidentifiedthemas
+practicalandmethodologicalissues.WiththeexceptionofTextTilingandHACSemanticChunker,ourexperiments
+utilized the original implementations provided by the authors of the respective chunking methods. Consequently,
+anyissuesrelatedtocodeoptimization,executionbottlenecks,orstructuralfailuresreflectthecurrentstateofthese
+specific implementations. When an error or failure occurred, the corresponding configuration was excluded from
+further downstream evaluation, as resolving third-party implementation inefficiencies falls outside the scope of this
+comparativestudy.Theencounteredfailuresaredenotedinthetablesusingthefollowingmarkers:Themarker“T”
+indicates severe scalability and efficiency limitations; in many cases, the chunking process required more than 48
+hourstocomplete.Themarker”S”furtherrevealsimplementationfragility,wherespaCy-relatederrorspreventedthe
+processingoflongdocumentsexceedingonemillioncharacters.
+An analysis of these failures reveals significant robustness issues across several approaches. GraphSeg performs
+wellwhenexecutionsucceeds,showingcompetitiveretrievalqualityacrossbothmetrics,butitsapplicabilityislim-
+
+[[page:6]]
+6 Authorname/ProcediaComputerScience00(2026)000–000
+Table2.Recall@10forevidenceretrieval.T-chunkingprocedureexceededtheallottedexecutiontime;S-TheunderlyingspaCylibrarytriggered
+anerrorduetoexcessivetemporarymemoryrequirements.;
+Recursive Sequential
+Dataset DenseX semantic Fixed-size HAC TextTiling Max-min GraphSeg Lumberchunker
+GutenQA T 67.62 39.65 11.31 23.48 26.58 47.74 T
+GutenQA
+merged T 53.72 36.57 10.92 20.34 25.50 S T
+LiteraryQA T 7.18 4.53 0.62 2.02 1.81 S T
+NQ 4.28 30.18 16.69 5.11 13.08 10.34 18.02 T
+NovelQA T 0.92 0.44 0.07 0.19 0.22 S T
+PoQuAD 24.01 98.31 96.26 89.86 96.95 94.69 98.01 97.66
+PoQuAD
+merged T 82.85 82.81 79.25 82.02 83.55 S 87.05
+Qasper 11.71 46.14 34.37 18.25 26.98 35.66 48.95 40.81
+SQuAD 66.28 85.81 81.81 79.84 81.79 84.24 85.98 87.14
+TriviaQA 38.42 78.66 64.90 49.95 61.23 62.05 71.78 T
+TriviaQA
+merged 19.90 40.52 34.18 27.19 30.27 33.82 S T
+Average 27.43 53.81 44.75 33.85 39.85 41.68 61.75 78.16
+Table3.Chunkingtimeperdatasetandmethod
+Recursive Sequential
+Dataset DenseX semantic Fixed-size HAC TextTiling Max-min GraphSeg Lumberchunker
+GutenQA - 10.99m <1s 8.72m 2.22m 9.18m 1.13h -
+GutenQA
+merged - 11.89m <1s 3.27m 6.37m 4.09m - -
+LiteraryQA - 9.91m <1s 3.19m 2.69m 4.16m - -
+NQ 30.79h 2.98m <1s 2.58m 36s 2.84m 11.68h -
+NovelQA - 11.02m <1s 3.18m 2.66m 4.03m - -
+PoQuAD 3.05h 43s <1s 17s 23s 17s 47s 9.94h
+PoQuAD
+merged - 22s <1s 4s 24s 5s - 4.27h
+Qasper 34.34m 15s <1s 5s 7s 4s 17s 1.90h
+SQuAD 5.47h 39s <1s 7s 16s 9s 32.55m 17.36h
+TriviaQA 25.39h 2.60m <1s 54s 38s 1.10m 5.17h -
+TriviaQA
+merged 25.03h 2.51m <1s 39s 48s 50s - -
+Average 15.05h 4.90m <1s 2.10m 1.56m 2.44m 3.09h 8.37h
+itedbymemory-relatedfailuresintheunderlyingimplementation.Lumberchunkerishighlyinconsistent,occasionally
+achieving excellent retrieval performance, but failing on many datasets due to time constraints, which significantly
+reducesitsoverallrobustness.TheselimitationsarelargelyattributabletoitsrelianceonanunderlyingLLM,whose
+behaviorcanleadtooverlyconservativeorinconsistentsegmentationdecisions.DenseXexhibitedlowerperformance
+across most experimental settings, frequently failing entirely or producing low-quality outputs when execution was
+possible.Overall,onlyRecursiveSemantic,Fixed-size,Max-min,TextTilingandSequentialHACconsistentlypro-
+videsufficientrobustnessforfullevaluationcoverage,withthefirsttwoofferingthebesttrade-offbetweenstability
+andretrievaleffectiveness.
+Table3detailsthechunkingexecutiontimesacrosstheexperiments.TheresultsclearlyestablishFixed-sizechunk-
+ingasthemostcomputationallyefficientmethod,significantlyoutperformingallotherapproaches.Conversely,Den-
+seX emerged as the slowest method by a substantial margin. The remaining techniques fall within an intermediate
+range: Sequential HAC, Max-min, Text Tiling, and Recursive Semantic exhibited comparable, moderate runtimes.
+GraphSegandLumberchunker,however,requiredthelongestexecutiontimesafterDenseX,indicatingconsiderably
+highercomputationaloverhead.
+
+[[page:7]]
+Authorname/ProcediaComputerScience00(2026)000–000 7
+Fig.1.NumberofchunksperchunkingmethodonSQuADdataset.
+Table4.LLM-as-a-judgescoreinanswergenerationtask
+Recursive Sequential
+Dataset DenseX semantic Fixed-size HAC Max-min GraphSeg Lumberchunker
+GutenQA - 3.65 3.30 2.50 3.05 3.41 -
+GutenQA
+merged - 3.59 3.25 2.48 3.02 - -
+LiteraryQA - 2.10 1.93 1.45 1.65 - -
+PoQuAD 3.77 4.24 4.25 3.84 4.07 4.24 4.21
+PoQuAD
+merged 3.09 4.09 4.18 3.87 4.08 - 4.28
+SQuAD 4.44 4.56 4.57 4.44 4.53 4.58 4.57
+TriviaQA 3.99 4.37 4.32 4.09 4.22 4.30 -
+TriviaQA
+merged 3.84 4.32 4.26 4.16 4.22 - -
+Average 3.83 3.86 3.76 3.35 3.61 4.13 4.35
+Figure 4 shows the number of chunks per chunking method on SQuAD dataset. Methods with fewer but more
+coherent chunks (e.g., GraphSeg and Lumberchunker) achieve the strongest Recall@10 and Accuracy@5, despite
+producingfarfewerchunksthanover-segmentedapproacheslikeDenseXorTextTiling.Higherchunkcountsinsim-
+plerbaselinesdonotconsistentlytranslateintobetterresults,indicatingalimitedbenefitfromincreasedsegmentation
+densityalone.Overall,chunkqualityandstructuralcoherencearemoreimportantthanchunkquantityforbothRe-
+call@10andAccuracy@5.
+Insecondexperiment,theend-to-endRAGanswergenerationresultsinTab.4showthatLumberchunkerachieves
+thehighestaveragescore,butthisisbasedonlyonalimitednumberofsuccessfulruns,whichmakestheestimateless
+reliableandpreventsstrongconclusionsaboutitsoveralladvantage.Excludingthislimitation,GraphSeg,Recursive
+SemanticandDenseXconsistentlyperformamongthebestmethods.Fixed-sizechunkingremainsasolidbaselinethat
+is competitive with more complex approaches, while Max-min performs below these methods but still outperforms
+SequentialHAC,whichistheweakestmethodoverall.Overall,thefindingsindicatethatalthoughadvancedmethods
+canprovidemarginalgains,simplerapproachesremainhighlycompetitive,andanyapparentadvantageofLLM-based
+chunkingshouldbeinterpretedcautiouslyduetoincompletecoverage.
+
+[[page:8]]
+8 Authorname/ProcediaComputerScience00(2026)000–000
+5. ConclusionandFutureWork
+Our experiments show that chunking in RAG systems is a much more difficult and fragile problem than is often
+assumed.Manymethodsfailinpracticeduetotimeouts,memoryissues,orpoorscalability,andonlyasubset(Re-
+cursiveSemantic,Fixed-size,SequentialHAC,Max-min)consistentlycompletesprocessingacrossdatasets.Results
+also vary strongly depending on document type and implementation constraints, and the execution time differences
+between methods are substantial. This indicates that chunking performance cannot be assessed without considering
+robustness and efficiency, not only retrieval metrics. Future work should focus on further systematic and fair evalu-
+ation of chunking methods across diverse datasets and document types as well as extending evaluations to multiple
+embedding models and reranking strategies to assess generalisability across retrieval components. Comparisons in
+literatureareoftenlimitedandpotentiallybiasedtowardspecificscenarios.Aunifiedtaxonomythatincludesrobust-
+ness, scalability, and computational cost is needed. Overall, chunking should be treated as a core research problem
+in RAG systems rather than a simple preprocessing step. Only such a comprehensive and standardized comparison
+will make it possible to answer whether chunking methods have a meaningful impact on RAG quality, or whether
+observeddifferencesaremainlydrivenbydatasetselectionandimplementationeffects.
+Acknowledgements
+Financed by: CLARIN-PL project financed as part of the investment: ”CLARIN ERIC – European Research In-
+frastructure Consortium: Common Language Resources and Technology Infrastructure (2024-2026), funded by the
+PolishMinistryofScienceandHigherEducation(2024/WK/01).
+Appendix A. Datasets
+Thegoalwastoensureameaningfulandfairevaluationofchunkingstrategiesacrossdiversedomainsanddocu-
+mentstructures.First,documentlengthplaysacriticalroleinchunkingevaluation.Chunkingisinherentlyirrelevant
+forshorttexts,asthereislittletononeedforsegmentation.Consequently,manywidelyusedQAdatasetswereex-
+cludedordeemphasizedbecausetheirdocumentsaretooshorttomeaningfullybenefitfromchunking.Second,most
+existing datasets do not provide explicit annotations of golden chunks, i.e., text segments that optimally contain the
+information needed to answer a query. To address this limitation, we selected datasets that mostly include answer
+annotations grounded in the source documents (e.g., answer spans, supporting passages, or evidence labels). These
+annotations allow us to approximate gold chunks indirectly by identifying regions of the text that contain relevant
+information.Thedatasetsusedinourstudyspanmultipledomainsandlevelsofcomplexity:
+• Narrativeandliterarydatasets:
+GutenQA [6], LiteraryQA [1], and NovelQA [26] provide long-form narrative texts, often derived from books
+(e.g.,ProjectGutenberg).Thesedatasetsfeaturedocumentlengthsrangingfromseveralthousandcharactersto
+entire novels. They are particularly suitable for evaluating chunking in story-based QA, where relevant infor-
+mationmaybedistributedacrossdistantpartsofthetext.
+• Scientificandstructureddocuments:
+Qasper[5]focusesonscientificpaperswithstructuredsections(e.g.,headingsandparagraphs).Itincludesex-
+plicitevidenceannotations,makingitvaluableforevaluatingchunkingmethodsthatleveragedocumentstruc-
+ture(e.g.,section-awareorhierarchicalchunking).
+• Open-domainandmulti-domainQAdatasets:
+TriviaQA[11],SQuAD[21],PoQuAD[24]andNaturalQuestions[15]awiderangeoftopicsandsources.
+Insummary,datasetselectionforchunkingevaluationrequirescarefulbalancingofthreefactors:(1)sufficiently
+longdocuments,(2)availabilityofanswer-groundedannotations,and(3)diversityofdomainsandstructures.Despite
+thelackofexplicitgoldenchunksinseveraldatasets,thechosendatasetsprovideapracticalfoundationforassessing
+chunking strategies through their impact on retrieval performance. The selected datasets statistics are presented in
+TableA.5.
+
+[[page:9]]
+Authorname/ProcediaComputerScience00(2026)000–000 9
+TableA.5.Datasetsstatistics.
+Dataset Documents Mindocumentlength Maxdocumentlength Avgdocumentlength
+GutenQA 36,917 4 32,767 1,814
+GutenQAmerged 1 67,058,241 67,058,241 67,058,241
+LiteraryQA 138 1,459 1,833,987 411,471
+NaturalQuestions 300 82 215,119 45,634
+NovelQA 60 322,441 6,839,619 1,007,786
+PoQuAd 1,449 501 3,860 922
+Qasper 416 314 2,003 1,014
+SQuAD 100 3,715 92,637 29,971
+TriviaQA 1,000 113 430,874 14,239
+TriviaQAmerged 1 14,241,172 14,241,172 14,241,172
+References
+[1] Bonomo,T.,Gioffre´,L.,Navigli,R.,2025.LiteraryQA:Towardseffectiveevaluationoflong-documentnarrativeQA,in:Christodoulopoulos,
+C.,Chakraborty,T.,Rose,C.,Peng,V.(Eds.),Proceedingsofthe2025ConferenceonEmpiricalMethodsinNaturalLanguageProcessing,
+AssociationforComputationalLinguistics,Suzhou,China.pp.34086–34107. URL:https://aclanthology.org/2025.emnlp-main.
+1729/,doi:10.18653/v1/2025.emnlp-main.1729.
+[2] Chase,H.,2022.Langchain.https://github.com/langchain-ai/langchain.Accessed:2025-05-20.
+[3] Chen,T.,Wang,H.,Chen,S.,Yu,W.,Ma,K.,Zhao,X.,Zhang,H.,Yu,D.,2024. DenseXretrieval:Whatretrievalgranularityshouldwe
+use?,in:Al-Onaizan,Y.,Bansal,M.,Chen,Y.N.(Eds.),Proceedingsofthe2024ConferenceonEmpiricalMethodsinNaturalLanguage
+Processing, Association for Computational Linguistics, Miami, Florida, USA. pp. 15159–15177. URL: https://aclanthology.org/
+2024.emnlp-main.845/,doi:10.18653/v1/2024.emnlp-main.845.
+[4] Dadas,S.,Perełkiewicz,M.,Pos´wiata,R.,2024. PIRB:AcomprehensivebenchmarkofPolishdenseandhybridtextretrievalmethods,in:
+Calzolari,N.,Kan,M.Y.,Hoste,V.,Lenci,A.,Sakti,S.,Xue,N.(Eds.),Proceedingsofthe2024JointInternationalConferenceonCompu-
+tationalLinguistics,LanguageResourcesandEvaluation(LREC-COLING2024),ELRAandICCL,Torino,Italia.pp.12761–12774. URL:
+https://aclanthology.org/2024.lrec-main.1117/.
+[5] Dasigi,P.,Lo,K.,Beltagy,I.,Cohan,A.,Smith,N.A.,Gardner,M.,2021. Adatasetofinformation-seekingquestionsandanswersanchored
+inresearchpapers.URL:https://arxiv.org/abs/2105.03011,arXiv:2105.03011.
+[6] Duarte,A.V.,Marques,J.D.,Grac¸a,M.,Freire,M.,Li,L.,Oliveira,A.L.,2024.LumberChunker:Long-formnarrativedocumentsegmentation,
+in:Al-Onaizan,Y.,Bansal,M.,Chen,Y.N.(Eds.),FindingsoftheAssociationforComputationalLinguistics:EMNLP2024,Associationfor
+ComputationalLinguistics,Miami,Florida,USA.pp.6473–6486. URL:https://aclanthology.org/2024.findings-emnlp.377/,
+doi:10.18653/v1/2024.findings-emnlp.377.
+[7] Gomez-Cabello,C.A.,Prabha,S.,Haider,S.A.,Genovese,A.,Collaco,B.G.,Wood,N.G.,Bagaria,S.,Forte,A.J.,2025. Comparativeeval-
+uationofadvancedchunkingforretrieval-augmentedgenerationinlargelanguagemodelsforclinicaldecisionsupport. Bioengineering12.
+URL:https://www.mdpi.com/2306-5354/12/11/1194,doi:10.3390/bioengineering12111194.
+[8] Gu¨nther,M.,Mohr,I.,Williams,D.J.,Wang,B.,Xiao,H.,2025.Latechunking:Contextualchunkembeddingsusinglong-contextembedding
+models.URL:https://arxiv.org/abs/2409.04701,arXiv:2409.04701.
+[9] Hearst,M.A.,1997. Texttiling:Segmentingtextintomulti-paragraphsubtopicpassages. ComputationalLinguistics23. URL:https:
+//aclanthology.org/J97-1003.pdf.
+[10] Jain,A.,Aggarwal,P.,Saladi,A.,2025. AutoChunker:Structuredtextchunkinganditsevaluation,in:Rehm,G.,Li,Y.(Eds.),Proceedings
+ofthe63rdAnnualMeetingoftheAssociationforComputationalLinguistics(Volume6:IndustryTrack),AssociationforComputational
+Linguistics, Vienna, Austria. pp. 983–995. URL: https://aclanthology.org/2025.acl-industry.69/, doi:10.18653/v1/2025.
+acl-industry.69.
+[11] Joshi,M.,Choi,E.,Weld,D.,Zettlemoyer,L.,2017.TriviaQA:Alargescaledistantlysupervisedchallengedatasetforreadingcomprehension,
+in:Barzilay,R.,Kan,M.Y.(Eds.),Proceedingsofthe55thAnnualMeetingoftheAssociationforComputationalLinguistics(Volume1:Long
+Papers),AssociationforComputationalLinguistics,Vancouver,Canada.pp.1601–1611.URL:https://aclanthology.org/P17-1147/,
+doi:10.18653/v1/P17-1147.
+[12] Kamradt, G., 2024. 5 levels of text splitting: Semantic chunking. https://github.com/FullStackRetrieval-com/
+RetrievalTutorials.TutorialandReferenceImplementation.
+[13] Karpukhin,V.,Oguz,B.,Min,S.,Lewis,P.,Wu,L.,Edunov,S.,Chen,D.,Yih,W.t.,2020. Densepassageretrievalforopen-domainquestion
+answering,in:Proceedingsofthe2020ConferenceonEmpiricalMethodsinNaturalLanguageProcessing(EMNLP),pp.6769–6781.
+[14] Kiss,A.,etal.,2025.Max-minsemanticchunking.DiscoverComputing28.URL:https://link.springer.com/journal/44227.article
+number:117.
+[15] Kwiatkowski,T.,Palomaki,J.,Redfield,O.,Collins,M.,Parikh,A.,Alberti,C.,Epstein,D.,Polosukhin,I.,Devlin,J.,Lee,K.,Toutanova,K.,
+Jones,L.,Kelcey,M.,Chang,M.W.,Dai,A.M.,Uszkoreit,J.,Le,Q.,Petrov,S.,2019.Naturalquestions:Abenchmarkforquestionanswering
+research. TransactionsoftheAssociationforComputationalLinguistics7,452–466. URL:https://aclanthology.org/Q19-1026/,
+
+[[page:10]]
+10 Authorname/ProcediaComputerScience00(2026)000–000
+doi:10.1162/tacl_a_00276.
+[16] Lewis,P.,Perez,E.,Piktus,A.,Petroni,F.,Karpukhin,V.,Goyal,N.,Ku¨ttler,H.,Lewis,M.,Yih,W.t.,Rockta¨schel,T.,Riedel,S.,Kiela,
+D.,2020. Retrieval-augmentedgenerationforknowledge-intensivenlptasks,in:Proceedingsofthe34thInternationalConferenceonNeural
+InformationProcessingSystems,CurranAssociatesInc.,RedHook,NY,USA.
+[17] Lu,W.,Chen,K.,Qiao,R.,Sun,X.,2026. Hichunk:Evaluatingandenhancingretrieval-augmentedgenerationwithhierarchicalchunking.
+URL:https://openreview.net/forum?id=yCyv2Ij3bS.
+[18] Pavlu,V.,Rajput,S.,Golbus,P.B.,Aslam,J.A.,2012. Irsystemevaluationusingnugget-basedtestcollections,in:ProceedingsoftheFifth
+ACMInternationalConferenceonWebSearchandDataMining,AssociationforComputingMachinery,NewYork,NY,USA.p.393–402.
+URL:https://doi.org/10.1145/2124295.2124343,doi:10.1145/2124295.2124343.
+[19] Pradeep,R.,Thakur,N.,Upadhyay,S.,Campos,D.,Craswell,N.,Soboroff,I.,Dang,H.T.,Lin,J.,2025.Thegreatnuggetrecall:Automating
+factextractionandragevaluationwithlargelanguagemodels,in:Proceedingsofthe48thInternationalACMSIGIRConferenceonResearch
+andDevelopmentinInformationRetrieval,AssociationforComputingMachinery,NewYork,NY,USA.p.180–190. URL:https://doi.
+org/10.1145/3726302.3730090,doi:10.1145/3726302.3730090.
+[20] Qu,R.,Tu,R.,Bao,F.S.,2025. Issemanticchunkingworththecomputationalcost?,in:Chiruzzo,L.,Ritter,A.,Wang,L.(Eds.),Findings
+oftheAssociationforComputationalLinguistics:NAACL2025,AssociationforComputationalLinguistics,Albuquerque,NewMexico.pp.
+2155–2177.URL:https://aclanthology.org/2025.findings-naacl.114/,doi:10.18653/v1/2025.findings-naacl.114.
+[21] Rajpurkar,P.,Zhang,J.,Lopyrev,K.,Liang,P.,2016.Squad:100,000+questionsformachinecomprehensionoftext.URL:https://arxiv.
+org/abs/1606.05250,arXiv:1606.05250.
+[22] Reimers,N.,Gurevych,I.,2019. Sentence-bert:Sentenceembeddingsusingsiamesebert-networks,in:Proceedingsofthe2019Conference
+onEmpiricalMethodsinNaturalLanguageProcessing,pp.3982–3992.
+[23] Shi,F.,Chen,X.,Misra,K.,Scales,N.,Dohan,D.,Chi,E.,Scha¨rli,N.,Zhou,D.,2023. Largelanguagemodelscanbeeasilydistractedby
+irrelevantcontext,in:Proceedingsofthe40thInternationalConferenceonMachineLearning,JMLR.org.
+[24] Tuora,R.,Zwierzchowska,A.,Zawadzka-Paluektau,N.,Klamra,C.,Kobylin´ski,L.,2023. Poquad-thepolishquestionansweringdataset-
+descriptionandanalysis,in:Proceedingsofthe12thKnowledgeCaptureConference2023,AssociationforComputingMachinery,NewYork,
+NY,USA.p.105–113.URL:https://doi.org/10.1145/3587259.3627548,doi:10.1145/3587259.3627548.
+[25] Verma,P.,2025. S2chunking:Ahybridframeworkfordocumentsegmentationthroughintegratedspatialandsemanticanalysis. URL:
+https://arxiv.org/abs/2501.05485,arXiv:2501.05485.
+[26] Wang,C.,Ning,R.,Pan,B.,Wu,T.,Guo,Q.,Deng,C.,Bao,G.,Hu,X.,Zhang,Z.,Wang,Q.,Zhang,Y.,2025a. Novelqa:Benchmarking
+questionansweringondocumentsexceeding200ktokens.URL:https://arxiv.org/abs/2403.12766,arXiv:2403.12766.
+[27] Wang,H.,Zhang,D.,Li,J.,Feng,Z.,Zhang,F.,2025b.Entropy-optimizeddynamictextsegmentationandrag-enhancedllmsforconstruction
+engineeringknowledgebase.AppliedSciences15.URL:https://www.mdpi.com/2076-3417/15/6/3134,doi:10.3390/app15063134.
+[28] Wang,X.,Wang,Z.,Gao,X.,Zhang,F.,Wu,Y.,Xu,Z.,Shi,T.,Wang,Z.,Li,S.,Qian,Q.,Yin,R.,Lv,C.,Zheng,X.,Huang,X.,2024.
+Searchingforbestpracticesinretrieval-augmentedgeneration,in:Al-Onaizan,Y.,Bansal,M.,Chen,Y.N.(Eds.),Proceedingsofthe2024
+ConferenceonEmpiricalMethodsinNaturalLanguageProcessing,AssociationforComputationalLinguistics,Miami,Florida,USA.pp.
+17716–17736.URL:https://aclanthology.org/2024.emnlp-main.981/,doi:10.18653/v1/2024.emnlp-main.981.
+[29] Wang,Z.,Araki,J.,Jiang,Z.,Parvez,M.R.,Neubig,G.,2023. Learningtofiltercontextforretrieval-augmentedgeneration. URL:https:
+//arxiv.org/abs/2311.08377,arXiv:2311.08377.
+[30] Wang,Z.,Gao,C.,Xiao,C.,Huang,Y.,Si,S.,Luo,K.,Bai,Y.,Li,W.,Duan,T.,Lv,C.,Lu,G.,Chen,G.,Qi,F.,Sun,M.,2025c. Document
+segmentationmattersforretrieval-augmentedgeneration,in:FindingsoftheAssociationforComputationalLinguistics:ACL2025,Associ-
+ationforComputationalLinguistics,Vienna,Austria.pp.8063–8075. URL:https://aclanthology.org/2025.findings-acl.422/,
+doi:10.18653/v1/2025.findings-acl.422.
+[31] Zhang,Y.,Zhao,X.,Wang,Z.Z.,Yang,C.,Wei,J.,Wu,T.,2025. cAST:Enhancingcoderetrieval-augmentedgenerationwithstructural
+chunkingviaabstractsyntaxtree,in:Christodoulopoulos,C.,Chakraborty,T.,Rose,C.,Peng,V.(Eds.),FindingsoftheAssociationfor
+Computational Linguistics: EMNLP 2025, Association for Computational Linguistics, Suzhou, China. pp. 8106–8116. URL: https://
+aclanthology.org/2025.findings-emnlp.430/,doi:10.18653/v1/2025.findings-emnlp.430.
+[32] Zhao,J.,Ji,Z.,Fan,Z.,Wang,H.,Niu,S.,Tang,B.,Xiong,F.,Li,Z.,2025a.MoC:Mixturesoftextchunkinglearnersforretrieval-augmented
+generationsystem,in:Che,W.,Nabende,J.,Shutova,E.,Pilehvar,M.T.(Eds.),Proceedingsofthe63rdAnnualMeetingoftheAssociation
+forComputationalLinguistics(Volume1:LongPapers),AssociationforComputationalLinguistics,Vienna,Austria.pp.5172–5189. URL:
+https://aclanthology.org/2025.acl-long.258/,doi:10.18653/v1/2025.acl-long.258.
+[33] Zhao,J.,Ji,Z.,Feng,Y.,Qi,P.,Niu,S.,Tang,B.,Xiong,F.,Li,Z.,2025b.Meta-chunking:Learningtextsegmentationandsemanticcompletion
+vialogicalperception.URL:https://arxiv.org/abs/2410.12788,arXiv:2410.12788.
+[34] Zheng,L.,Chiang,W.L.,Sheng,Y.,Zhuang,S.,Wu,Z.,Zhuang,Y.,Lin,Z.,Li,Z.,Li,D.,Xing,E.P.,Zhang,H.,Gonzalez,J.E.,Stoica,I.,
+2023. Judgingllm-as-a-judgewithmt-benchandchatbotarena,in:Proceedingsofthe37thInternationalConferenceonNeuralInformation
+ProcessingSystems,CurranAssociatesInc.,RedHook,NY,USA.
+[35] Zhong,Z.,Liu,H.,Cui,X.,Zhang,X.,Qin,Z.,2025. Mix-of-granularity:Optimizethechunkinggranularityforretrieval-augmentedgen-
+eration,in:Rambow,O.,Wanner,L.,Apidianaki,M.,Al-Khalifa,H.,Eugenio,B.D.,Schockaert,S.(Eds.),Proceedingsofthe31stInter-
+national Conference on Computational Linguistics, Association for Computational Linguistics, Abu Dhabi, UAE. pp. 5756–5774. URL:
+https://aclanthology.org/2025.coling-main.384/.
+[36] Zhou,Y.,Wang,S.,Koopman,B.,Zuccon,G.,2026. Beyondchunk-then-embed:Acomprehensivetaxonomyandevaluationofdocument
+chunkingstrategiesforinformationretrieval.URL:https://arxiv.org/abs/2602.16974,arXiv:2602.16974.

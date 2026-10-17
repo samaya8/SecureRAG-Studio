@@ -1,0 +1,291 @@
+{
+  "version": "1.0.0",
+  "generatedAt": "2026-07-28T16:55:42.448Z",
+  "corpora": [
+    {
+      "id": "university-policies",
+      "title": "University Policies",
+      "description": "Approved academic regulations used by the SecureRAG Studio demo.",
+      "documents": [
+        {
+          "id": "DOC-001",
+          "title": "Student Attendance Policy",
+          "version": "2026.1",
+          "category": "Academic Regulations",
+          "approvalStatus": "approved",
+          "uploadedAt": "2026-07-20T00:00:00.000Z",
+          "approvedBy": "University Department",
+          "sourceType": "markdown",
+          "file": "corpus/documents/attendance-policy.md"
+        },
+        {
+          "id": "DOC-002",
+          "title": "Examination Policy",
+          "version": "2026.1",
+          "category": "Academic Regulations",
+          "approvalStatus": "approved",
+          "uploadedAt": "2026-07-20T00:00:00.000Z",
+          "approvedBy": "University Department",
+          "sourceType": "markdown",
+          "file": "corpus/documents/examination-policy.md"
+        },
+        {
+          "id": "DOC-003",
+          "title": "Draft Tuition Fee Policy",
+          "version": "0.3-draft",
+          "category": "Financial Regulations",
+          "approvalStatus": "rejected",
+          "uploadedAt": "2026-07-22T00:00:00.000Z",
+          "approvedBy": "Yara Samir",
+          "sourceType": "markdown",
+          "file": "corpus/documents/draft-fee-policy.md"
+        }
+      ]
+    },
+    {
+      "id": "rag-research",
+      "title": "RAG Research Library",
+      "description": "Peer-reviewed and preprint literature curated for the SecureRAG Studio knowledge base.",
+      "documents": [
+        {
+          "id": "DOC-001",
+          "title": "Retrieval-Augmented Generation (RAG)",
+          "version": "1.0",
+          "category": "What is RAG",
+          "approvalStatus": "approved",
+          "uploadedAt": "2026-07-25T00:00:00.000Z",
+          "approvedBy": "Yara Samir",
+          "sourceType": "pdf",
+          "file": "corpus/extracted/DOC-001.txt"
+        },
+        {
+          "id": "DOC-002",
+          "title": "Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks",
+          "version": "1.0",
+          "category": "What is RAG",
+          "approvalStatus": "approved",
+          "uploadedAt": "2026-07-25T00:00:00.000Z",
+          "approvedBy": "Yara Samir",
+          "sourceType": "pdf",
+          "file": "corpus/extracted/DOC-002.txt"
+        },
+        {
+          "id": "DOC-003",
+          "title": "Retrieval-Augmented Generation for Large Language Models: A Survey",
+          "version": "1.0",
+          "category": "What is RAG",
+          "approvalStatus": "approved",
+          "uploadedAt": "2026-07-25T00:00:00.000Z",
+          "approvedBy": "Yara Samir",
+          "sourceType": "pdf",
+          "file": "corpus/extracted/DOC-003.txt"
+        },
+        {
+          "id": "DOC-004",
+          "title": "A Survey of Prompt Engineering Methods in Large Language Models",
+          "version": "1.0",
+          "category": "Prompt Engineering",
+          "approvalStatus": "approved",
+          "uploadedAt": "2026-07-25T00:00:00.000Z",
+          "approvedBy": "Yara Samir",
+          "sourceType": "pdf",
+          "file": "corpus/extracted/DOC-004.txt"
+        },
+        {
+          "id": "DOC-005",
+          "title": "Prompt Engineering",
+          "version": "1.0",
+          "category": "Prompt Engineering",
+          "approvalStatus": "approved",
+          "uploadedAt": "2026-07-25T00:00:00.000Z",
+          "approvedBy": "Yara Samir",
+          "sourceType": "pdf",
+          "file": "corpus/extracted/DOC-005.txt"
+        },
+        {
+          "id": "DOC-006",
+          "title": "BERT",
+          "version": "1.0",
+          "category": "Embeddings",
+          "approvalStatus": "approved",
+          "uploadedAt": "2026-07-26T00:00:00.000Z",
+          "approvedBy": "Yara Samir",
+          "sourceType": "pdf",
+          "file": "corpus/extracted/DOC-006.txt"
+        },
+        {
+          "id": "DOC-007",
+          "title": "Sentence-BERT",
+          "version": "1.0",
+          "category": "Embeddings",
+          "approvalStatus": "approved",
+          "uploadedAt": "2026-07-26T00:00:00.000Z",
+          "approvedBy": "Yara Samir",
+          "sourceType": "pdf",
+          "file": "corpus/extracted/DOC-007.txt"
+        },
+        {
+          "id": "DOC-008",
+          "title": "Chunking Methods on Retrieval-Augmented Generation",
+          "version": "1.0",
+          "category": "Chunking",
+          "approvalStatus": "approved",
+          "uploadedAt": "2026-07-26T00:00:00.000Z",
+          "approvedBy": "Yara Samir",
+          "sourceType": "pdf",
+          "file": "corpus/extracted/DOC-008.txt"
+        },
+        {
+          "id": "DOC-009",
+          "title": "Query-Adaptive Semantic Chunking for RAG",
+          "version": "1.0",
+          "category": "Chunking",
+          "approvalStatus": "approved",
+          "uploadedAt": "2026-07-26T00:00:00.000Z",
+          "approvedBy": "Yara Samir",
+          "sourceType": "pdf",
+          "file": "corpus/extracted/DOC-009.txt"
+        },
+        {
+          "id": "DOC-010",
+          "title": "The FAISS Library",
+          "version": "1.0",
+          "category": "FAISS",
+          "approvalStatus": "approved",
+          "uploadedAt": "2026-07-26T00:00:00.000Z",
+          "approvedBy": "Yara Samir",
+          "sourceType": "pdf",
+          "file": "corpus/extracted/DOC-010.txt"
+        },
+        {
+          "id": "DOC-011",
+          "title": "A Comprehensive Survey on Vector Database",
+          "version": "1.0",
+          "category": "Vector Databases",
+          "approvalStatus": "approved",
+          "uploadedAt": "2026-07-26T00:00:00.000Z",
+          "approvedBy": "Yara Samir",
+          "sourceType": "pdf",
+          "file": "corpus/extracted/DOC-011.txt"
+        },
+        {
+          "id": "DOC-012",
+          "title": "Introduction to Vector Databases for Generative AI",
+          "version": "1.0",
+          "category": "Vector Databases",
+          "approvalStatus": "approved",
+          "uploadedAt": "2026-07-26T00:00:00.000Z",
+          "approvedBy": "Yara Samir",
+          "sourceType": "pdf",
+          "file": "corpus/extracted/DOC-012.txt"
+        },
+        {
+          "id": "DOC-013",
+          "title": "OWASP Top 10 for Agentic Applications",
+          "version": "1.0",
+          "category": "LLM Security",
+          "approvalStatus": "approved",
+          "uploadedAt": "2026-07-26T00:00:00.000Z",
+          "approvedBy": "Yara Samir",
+          "sourceType": "pdf",
+          "file": "corpus/extracted/DOC-013.txt"
+        },
+        {
+          "id": "DOC-014",
+          "title": "HalluScope",
+          "version": "1.0",
+          "category": "AI Hallucination",
+          "approvalStatus": "approved",
+          "uploadedAt": "2026-07-26T00:00:00.000Z",
+          "approvedBy": "Yara Samir",
+          "sourceType": "pdf",
+          "file": "corpus/extracted/DOC-014.txt"
+        },
+        {
+          "id": "DOC-015",
+          "title": "SELF-RAG",
+          "version": "1.0",
+          "category": "Citation & Grounding",
+          "approvalStatus": "approved",
+          "uploadedAt": "2026-07-26T00:00:00.000Z",
+          "approvedBy": "Yara Samir",
+          "sourceType": "pdf",
+          "file": "corpus/extracted/DOC-015.txt"
+        },
+        {
+          "id": "DOC-016",
+          "title": "Corrective Retrieval Augmented Generation (CRAG)",
+          "version": "1.0",
+          "category": "Citation & Grounding",
+          "approvalStatus": "approved",
+          "uploadedAt": "2026-07-27T00:00:00.000Z",
+          "approvedBy": "Yara Samir",
+          "sourceType": "pdf",
+          "file": "corpus/extracted/DOC-016.txt"
+        },
+        {
+          "id": "DOC-017",
+          "title": "RAGAS",
+          "version": "1.0",
+          "category": "RAG Evaluation",
+          "approvalStatus": "approved",
+          "uploadedAt": "2026-07-27T00:00:00.000Z",
+          "approvedBy": "Yara Samir",
+          "sourceType": "pdf",
+          "file": "corpus/extracted/DOC-017.txt"
+        },
+        {
+          "id": "DOC-018",
+          "title": "LoRA",
+          "version": "1.0",
+          "category": "Fine-Tuning",
+          "approvalStatus": "rejected",
+          "uploadedAt": "2026-07-27T00:00:00.000Z",
+          "approvedBy": "Yara Samir",
+          "sourceType": "pdf",
+          "file": "corpus/rejected/DOC-018_llm_lora_finetuning_v1.pdf"
+        },
+        {
+          "id": "DOC-019",
+          "title": "GPT-3: Language Models are Few-Shot Learners",
+          "version": "1.0",
+          "category": "General LLM",
+          "approvalStatus": "rejected",
+          "uploadedAt": "2026-07-27T00:00:00.000Z",
+          "approvedBy": "Yara Samir",
+          "sourceType": "pdf",
+          "file": "corpus/rejected/DOC-019_llm_few_shot_learning_v1.pdf"
+        }
+      ]
+    },
+    {
+      "id": "security-lab",
+      "title": "Security Lab",
+      "description": "Test-only corpus containing a document with an embedded instruction, used to prove indirect prompt-injection handling.",
+      "documents": [
+        {
+          "id": "SEC-001",
+          "title": "Security Lab Note: Embedded Instruction Sample",
+          "version": "1.0",
+          "category": "Security Testing",
+          "approvalStatus": "approved",
+          "uploadedAt": "2026-07-24T00:00:00.000Z",
+          "approvedBy": "Mohab Ahmed",
+          "sourceType": "markdown",
+          "file": "corpus/documents/injection-test-note.md"
+        },
+        {
+          "id": "SEC-002",
+          "title": "Security Lab Overview",
+          "version": "1.0",
+          "category": "Security Testing",
+          "approvalStatus": "approved",
+          "uploadedAt": "2026-07-24T00:00:00.000Z",
+          "approvedBy": "Mohab Ahmed",
+          "sourceType": "markdown",
+          "file": "corpus/documents/security-lab-overview.md"
+        }
+      ]
+    }
+  ]
+}

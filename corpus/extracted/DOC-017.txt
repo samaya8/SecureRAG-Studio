@@ -1,0 +1,596 @@
+[[page:1]]
+Ragas: Automated Evaluation of Retrieval Augmented Generation
+ShahulEs†,JithinJames†,LuisEspinosa-Anke∗♢,StevenSchockaert∗
+†ExplodingGradients
+∗CardiffNLP,CardiffUniversity,UnitedKingdom
+♢AMPLYFI,UnitedKingdom
+shahules786@gmail.com,jamesjithin97@gmail.com
+{espinosa-ankel,schockaerts1}@cardiff.ac.uk
+Abstract struggletomemoriseknowledgethatisonlyrarely
+mentioned in the training corpus (Kandpal et al.,
+We introduce Ragas (Retrieval Augmented
+2022;Mallenetal.,2023). Thestandardsolution
+Generation Assessment), a framework for
+to these issues is to rely on Retrieval Augmented
+reference-free evaluation of Retrieval Aug-
+Generation (RAG) (Lee et al., 2019; Lewis et al.,
+mented Generation (RAG) pipelines. RAG
+2020; Guu et al., 2020). Answering a question
+systems are composed of a retrieval and an
+LLM based generation module, and provide then essentially involves retrieving relevant pas-
+LLMswithknowledgefromareferencetextual sages from a corpus and feeding these passages,
+database,whichenablesthemtoactasanatu- alongwiththeoriginalquestion,totheLM.While
+rallanguagelayerbetweenauserandtextual initial approaches relied on specialised LMs for
+databases,reducingtheriskofhallucinations.
+retrieval-augmentedlanguagemodelling(Khandel-
+EvaluatingRAGarchitecturesis,however,chal-
+waletal.,2020;Borgeaudetal.,2022),recentwork
+lengingbecausethereareseveraldimensionsto
+has suggested that simply adding retrieved docu-
+consider: theabilityoftheretrievalsystemto
+identifyrelevantandfocusedcontextpassages, mentstotheinputofastandardLMcanalsowork
+theabilityoftheLLMtoexploitsuchpassages well (Khattab et al., 2022; Ram et al., 2023; Shi
+inafaithfulway,orthequalityofthegenera- etal.,2023),thusmakingitpossibletouseretrieval-
+tionitself. WithRagas,weputforwardasuite augmented strategies in combination with LLMs
+ofmetricswhichcanbeusedtoevaluatethese thatareonlyavailablethroughAPIs.
+differentdimensionswithouthavingtorelyon
+While the usefulness of retrieval-augmented
+groundtruthhumanannotations. Wepositthat
+strategies is clear, their implementation requires
+such a framework can crucially contribute to
+asignificantamountoftuning, astheoverallper-
+fasterevaluationcyclesofRAGarchitectures,
+which is especially important given the fast formance will be affected by the retrieval model,
+adoptionofLLMs. theconsideredcorpus,theLM,orthepromptfor-
+mulation,amongothers. Automatedevaluationof
+1 Introduction
+retrieval-augmentedsystemsisthusparamount. In
+practice,RAGsystemsareoftenevaluatedinterms
+Language Models (LMs) capture a vast amount
+ofthelanguagemodellingtaskitself,i.e.bymea-
+ofknowledgeabouttheworld,whichallowsthem
+suringperplexityonsomereferencecorpus. How-
+to answer questions without accessing any exter-
+ever, such evaluations are not always predictive
+nal sources. This idea of LMs as repositories of
+ofdownstreamperformance(Wangetal.,2023c).
+knowledgeemergedshortlyaftertheintroduction
+Moreover,thisevaluationstrategyreliesontheLM
+of BERT (Devlin et al., 2019) and became more
+probabilities, which are not accessible for some
+firmly established with the introduction of ever
+closed models (e.g. ChatGPT and GPT-4). Ques-
+largerLMs(Robertsetal.,2020). Whilethemost
+tionansweringisanothercommonevaluationtask,
+recent Large Language Models (LLMs) capture
+butusuallyonlydatasetswithshortextractivean-
+enough knowledge to rival human performance
+swersareconsidered,whichmaynotberepresen-
+acrossawidevarietyofquestionansweringbench-
+tativeofhowthesystemwillbeused.
+marks (Bubeck et al., 2023), the idea of using
+Toaddresstheseissues,inthispaperwepresent
+LLMsasknowledgebasesstillhastwofundamen-
+Ragas1,aframeworkfortheautomatedassessment
+tallimitations. First,LLMsarenotabletoanswer
+questions about events that have happened after
+1Ragas is available at https://github.com/
+theyweretrained. Second,eventhelargestmodels explodinggradients/ragas.
+5202
+rpA
+82
+]LC.sc[
+2v71251.9032:viXra
+
+[[page:2]]
+ofretrievalaugmentedgenerationsystems. Wefo- factualanswersaremorestable: whenanansweris
+cusonsettingswherereferenceanswersmaynotbe factual,wecanexpectthatdifferentsampleswill
+available,andwherewewanttoestimatedifferent tendtobesemanticallysimilar,whereasthisisless
+proxies for correctness, in addition to the useful- likelytobethecaseforhallucinatedanswers.
+ness of the retrieved passages. The Ragas frame-
+Automatedevaluationoftextgenerationsystems
+workprovidesanintegrationwithbothllama-index
+LLMs have also been leveraged to automatically
+andLangchain,themostwidelyusedframeworks
+evaluateotheraspectsofgeneratedtextfragments,
+for building RAG solutions, thus enabling devel-
+beyond factuality. For instance, GPTScore (Fu
+operstoeasilyintegrateRagasintotheirstandard
+etal.,2023)usesapromptthatspecifiestheconsid-
+workflow.
+eredaspect(e.g.fluency)andthenscorespassages
+basedontheaverageprobabilityofthegenerated
+2 RelatedWork
+tokens, according to a given autoregressive LM.
+EstimatingfaithfulnessusingLLMs Theprob- This idea of using prompts was previously also
+lemofdetectinghallucinationsinLLMgenerated considered by Yuan et al. (2021), although they
+responses has been extensively studied (Ji et al., usedasmallerfine-tunedLM(i.e.BART)anddid
+2023). Several authors have suggested the idea notobserveaclearbenefitfromusingprompts. An-
+of predicting factuality using a few-shot prompt- otherapproachdirectlyasksChatGPTtoevaluate
+ing strategy (Zhang et al., 2023). Recent analy- aparticularaspectofthegivenanswerbyprovid-
+ses,however,suggestthatexistingmodelsstruggle ingascorebetween0and100,orbyprovidinga
+withdetectinghallucinationwhenusingstandard rating on a 5-star scale (Wang et al., 2023a). Re-
+prompting strategies (Li et al., 2023; Azaria and markably, strong results can be obtained in this
+Mitchell,2023). Otherapproachesrelyonlinking way,althoughitcomeswiththelimitationofbeing
+thegeneratedresponsestofactsfromanexternal sensitivetothedesignoftheprompt. Ratherthan
+knowledgebase(Minetal.,2023),butthisisnot scoringindividualanswers,someauthorshavealso
+alwayspossible. focusedonusinganLLMtoselectthebestanswer
+amonganumberofcandidates(Wangetal.,2023b),
+Yetanotherstrategyistoinspecttheprobabili-
+typicallytocomparetheperformanceofdifferent
+tiesassignedtoindividualtokens,wherewewould
+LLMs. However,careisneededwiththisapproach,
+expect the model to be less confident in halluci-
+astheorderinwhichtheanswersispresentedcan
+nated answers than in factual ones. For instance,
+influencetheresult(Wangetal.,2023b).
+BARTScore(Yuanetal.,2021)estimatesfactuality
+Intermsofhowgroundtruthanswersor,more
+bylookingattheconditionalprobabilityofthegen-
+generally, generations, have been typically used
+eratedtextgiventheinput. Kadavathetal.(2022)
+in the literature, most approaches have relied on
+use a variation of this idea. Starting from the ob-
+theavailabilityofoneormorereferenceanswers.
+servationthatLLMsprovidewell-calibratedproba-
+For instance, BERTScore (Zhang et al., 2020)
+bilitieswhenansweringmultiple-choicequestions,
+and MoverScore (Zhao et al., 2019) use contex-
+theyessentiallyconverttheproblemofvalidating
+tualised embeddings, produced by a pre-trained
+model generated answers into a multiple-choice
+BERT model, to compare the similarity between
+questionwhichaskswhethertheansweristrueor
+the generated answer and the reference answers.
+false. Rather than looking at the output probabil-
+BARTScore(Yuanetal.,2021)similarlyusesrefer-
+ities,AzariaandMitchell(2023)proposetotrain
+enceanswerstocomputeaspectssuchasprecision
+asupervisedclassifierontheweightsfromoneof
+(estimatedastheprobabilityofgeneratingthegen-
+thehiddenlayersoftheLLM,topredictwhethera
+eratedanswergiventhereference)andrecall(esti-
+givenstatementistrueornot. Whiletheapproach
+matedastheprobabilityofgeneratingthereference
+performswell,theneedtoaccessthehiddenstates
+giventhegeneratedanswer).
+ofthemodelmakesitunsuitableforsystemsthat
+accessLLMsthroughanAPI.
+3 EvaluationStrategies
+Formodelsthatdonotprovideaccesstotoken
+probabilities,suchasChatGPTandGPT-4,differ- WeconsiderastandardRAGsetting,wheregivena
+entmethodsareneeded. SelfCheckGPT(Manakul questionq,thesystemfirstretrievessomecontext
+etal.,2023)addressesthisproblembyinsteadsam- c(q)andthenusestheretrievedcontexttogenerate
+pling multiple answers. Their core idea is that an answer a (q). When building a RAG system,
+s
+
+[[page:3]]
+weusuallydonothaveaccesstohuman-annotated inS,theLLMdeterminesifs canbeinferredfrom
+i
+datasets or reference answers. We therefore fo- c(q)usingaverificationfunctionv(s ,c(q)). This
+i
+cus on metrics that are fully self-contained and verificationstepiscarriedoutusingthefollowing
+reference-free. Wefocusinparticularthreequality prompt:
+aspects,whichweargueareofcentralimportance.
+Considerthegivencontextandfollowing
+First, Faithfulness refers to the idea that the an-
+statements,thendeterminewhetherthey
+swershouldbegroundedinthegivencontext. This
+aresupportedbytheinformationpresent
+isimportanttoavoidhallucinations,andtoensure
+in the context. Provide a brief explana-
+thattheretrievedcontextcanactasajustification
+tion for each statement before arriving
+forthegeneratedanswer. Indeed,RAGsystemsare
+at the verdict (Yes/No). Provide a final
+often used in applications where the factual con-
+verdictforeachstatementinorderatthe
+sistency of the generated text w.r.t. the grounded
+endinthegivenformat. Donotdeviate
+sourcesishighlyimportant,e.g.indomainssuchas
+fromthespecifiedformat.
+law,whereinformationisconstantlyevolving. Sec-
+statement: [statement 1]
+ond,AnswerRelevancereferstotheideathatthe
+...
+generated answershould addressthe actualques-
+statement: [statement n]
+tionthatwasprovided. Finally,ContextRelevance
+referstotheideathattheretrievedcontextshould The final faithfulness score, F, is then computed
+befocused,containingaslittleirrelevantinforma- asF = |V| ,where|V|isthenumberofstatements
+|S|
+tion as possible. This is important given the cost
+thatweresupportedaccordingtotheLLMand|S|
+associated with feeding long context passages to
+isthetotalnumberofstatements.
+LLMs. Moreover,whencontextpassagesaretoo
+long, LLMs are often less effective in exploiting Answerrelevance Wesaythattheanswera s (q)
+thatcontext,especiallyforinformationthatispro- is relevant if it directly addresses the question in
+vided in the middle of the context passage (Liu anappropriateway. Inparticular,ourassessment
+etal.,2023). ofanswerrelevancedoesnottakeintoaccountfac-
+Wenowexplainhowthesethreequalityaspects tuality, but penalises cases where the answer is
+can be measured in a fully automated way, by incompleteorwhereitcontainsredundantinforma-
+prompting an LLM. In our implementation and tion. To estimate answer relevance, for the given
+experiments, all prompts are evaluated using the answer a s (q), we prompt the LLM to generate n
+gpt-3.5-turbo-16k model, which is available potentialquestionsq i basedona s (q),asfollows:
+throughtheOpenAIAPI2.
+Generateaquestionforthegivenanswer.
+Faithfulness We say that the answer a (q) is answer: [answer]
+s
+faithful to the context c(q) if the claims that are
+We then obtain embeddings for all questions us-
+madeintheanswercanbeinferredfromthecon-
+ing the text-embedding-ada-002 model, avail-
+text. Toestimatefaithfulness,wefirstuseanLLM
+able from the OpenAI API. For each q , we cal-
+i
+to extract a set of statements, S(a (q)). The aim
+s culate the similarity sim(q,q ) with the original
+i
+ofthisstepistodecomposelongersentencesinto
+questionq,asthecosinebetweenthecorrespond-
+shorter and more focused assertions. We use the
+ingembeddings. Theanswerrelevancescore,AR,
+followingpromptforthisstep3:
+forquestionq isthencomputedas:
+Givenaquestionandanswer,createone
+n
+or more statements from each sentence 1 (cid:88)
+AR = sim(q,q ) (1)
+i
+inthegivenanswer. n
+i=1
+question: [question]
+Thismetricevaluateshowcloselythegenerated
+answer: [answer]
+answer aligns with the initial question or instruc-
+where [question] and [answer] refer to the tion.
+givenquestionandanswer. Foreachstatements
+i
+Context relevance The context c(q) is consid-
+2https://platform.openai.com
+eredrelevanttotheextentthatitexclusivelycon-
+3Tohelpclarifythetask,weincludeademonstrationas
+tainsinformationthatisneededtoanswertheques-
+partoftheprompt.Thisdemonstrationisnotexplicitlyshown
+inthelistingofthepromptsthroughoutthispaper. tion. Inparticular,thismetricaimstopenalisethe
+
+[[page:4]]
+inclusion of redundant information. To estimate links.
+context relevance, given aquestion q and itscon- 4. The question should be of moderate
+textc(q),theLLMextractsasubsetofsentences, difficulty.
+S ,fromc(q)thatarecrucialtoanswerq,using 5. Thequestionmustbereasonableand
+ext
+thefollowingprompt: mustbeunderstoodandrespondedtoby
+humans.
+Please extract relevant sentences from
+6. Donotusephrasesthat’providedcon-
+theprovidedcontextthatcanpotentially
+text’,etcinthequestion
+helpanswerthefollowingquestion. Ifno
+context:
+relevant sentences are found, or if you
+believethequestioncannotbeanswered We also used ChatGPT to answer the generated
+fromthegivencontext,returnthephrase question,whengiventhecorrespondingintroduc-
+"InsufficientInformation". Whileextract- torysectionascontext,usingthefollowingprompt:
+ing candidate sentences you’re not al-
+Answer the question using the informa-
+lowedtomakeanychangestosentences
+tionfromthegivencontext.
+fromgivencontext.
+question: [question]
+Thecontextrelevancescoreisthencomputedas: context: [context]
+numberofextractedsentences Allquestionswereannotatedalongthethreecon-
+CR = (2)
+totalnumberofsentencesinc(q) sideredqualitydimensionsbytwoannotators. Both
+annotatorswerefluentinEnglishandweregiven
+4 TheWikiEvalDataset clear instructions about the meaning of the three
+considered quality dimensions. For faithfulness
+To evaluate the proposed framework, we ideally
+andcontextrelevance,thetwoannotatorsagreedin
+needexamplesofquestion-context-answertriples
+around95%ofcases. Foranswerrelevance,they
+which are annotated with human judgments. We
+agreedinaround90%ofthecases. Disagreements
+can then verify to what extent our metrics agree
+wereresolvedafteradiscussionbetweentheanno-
+with human assessments of faithfulness, answer
+tators.
+relevanceandcontextrelevance. Sincewearenot
+awareofanypubliclyavailabledatasetsthatcould Faithfulness Toobtainhumanjudgementsabout
+beusedforthispurpose,wecreatedanewdataset, faithfulness,wefirstusedChatGPTtoanswerthe
+which we refer to as WikiEval4. To construct the questionwithoutaccesstoanyadditionalcontext.
+dataset,wefirstselected50Wikipediapagescov- Wethenaskedtheannotatorstojudgewhichofthe
+eringeventsthathavehappenedsincethestartof twoanswerswasthemostfaithful(i.e.thestandard
+20225. In selecting these pages, we prioritised one or the one generated without context), given
+thosewithrecentedits. Foreachofthe50pages, thequestionandcorrespondingWikipediapage.
+wethenaskedChatGPTtosuggestaquestionthat
+Answer relevance We first used ChatGPT to
+canbeansweredbasedontheintroductorysection
+obtain candidate answers with lower answer rel-
+ofthepage,usingthefollowingprompt:
+evance,usingthefollowingprompt:
+Yourtaskistoformulateaquestionfrom
+Answerthegivenquestioninanincom-
+given context satisfying the rules given
+pletemanner.
+below:
+question: [question]
+1. Thequestionshouldbefullyanswered
+fromthegivencontext. Wethenaskedhumanannotatorstocomparethis
+2. The question should be framed from answer,andindicatewhichofthetwoanswershad
+apartthatcontainsnon-trivialinforma- thehighestanswerrelevance.
+tion.
+Context relevance To measure this aspect, we
+3. The answer should not contain any
+first added additional sentences to the context by
+4https://huggingface.co/datasets/
+scrapingback-linkstothecorrespondingWikipedia
+explodinggradients/WikiEval
+page. Inthisway,wewereabletoaddinformation
+5Thatis,beyondthereportedtrainingcutoffofthemodel
+weusedinourexperiments. tothecontextthatwasrelatedbutlessrelevantfor
+
+[[page:5]]
+Faith. Ans.Rel. Cont.Rel. context. In this case, the prompt again includes
+a definition of the considered quality metric. For
+Ragas 0.95 0.78 0.70
+instance,forevaluatinganswerrelevance,weused
+GPTScore 0.72 0.52 0.63
+thefollowingprompt:
+GPTRanking 0.54 0.40 0.52
+AnswerRelevancymeasuresthedegree
+Table1: Agreementwithhumanannotatorsinpairwise to which a response directly addresses
+comparisonsoffaithfulness,answerrelevanceandcon-
+andisappropriateforagivenquestion.
+text relevance, using the WikEval dataset (accuracy).
+Itpenalizesthepresentofredundantin-
+formationorincompleteanswersgivena
+question. Givenanquestionandanswer,
+answering the question. For the few pages with- rankeachanswerbasedonAnswerRele-
+out any back-links, we instead used ChatGPT to vancy.
+completethegivencontext. question: [question]
+answer1: [answer 1]
+5 Experiments
+answer2: [answer 2]
+Table 1 analyses the agreement between the met-
+The results in Table 1 show that our proposed
+rics proposed in Section 3 and the human assess-
+metrics are much closer aligned with the human
+mentsfromtheproposedWikiEvaldataset. Each
+judgementsthanthepredictionsfromthetwobase-
+WikiEvalinstancerequiresthemodeltocompare
+lines. Forfaithfulness,theRagaspredictionarein
+twoanswersortwocontextfragments. Wecount
+generalhighlyaccurate. Foranswerrelevance,the
+how often the answer/context preferred by the
+agreement is lower, but this is largely due to the
+model(i.e.withhighestestimatedfaithfulness,an-
+factthatthedifferencesbetweenthetwocandidate
+swer relevance, or context relevance) coincides
+answers are often very subtle. We found context
+with the answer/context preferred by the human
+relevance to be the hardest quality dimension to
+annotators. We report the results in terms of ac-
+evaluate. Inparticular,weobservedthatChatGPT
+curacy(i.e.thefractionofinstancesonwhichthe
+often struggles with the task of selecting the sen-
+modelagreeswiththeannotators).
+tencesfromthecontextthatarecrucial,especially
+To put the results in context, we compare our
+forlongercontexts.
+proposedmetrics(shownasRagasinTable1)with
+twobaselinemethods. Forthefirstmethod,shown
+6 Conclusions
+asGPTScore,weaskChatGPTtoassignascore
+between0and10forthethreequalitydimensions. We have highlighted the need for automated
+To this end, we use a prompt that describes the reference-freeevaluationofRAGsystems. Inpar-
+meaning of the quality metric and then asks to ticular,wehavearguedtheneedforanevaluation
+score the given answer/context in line with that frameworkthatcanassessfaithfulness(i.e.isthe
+definition. Forinstance,forevaluatingfaithfulness, answergroundedintheretrievedcontext),answer
+weusedthefollowingprompt: relevance (i.e. does the answer address the ques-
+tion) and context relevance (i.e. is the retrieved
+Faithfulness measures the information
+contextsufficientlyfocused). Tosupportthedevel-
+consistency of the answer against the
+opmentofsuchaframework,wehaveintroduced
+givencontext. Anyclaimsthataremade
+WikiEval, a dataset which human judgements of
+in the answer that cannot be deduced
+thesethreedifferentaspects. Finally,wehavealso
+fromcontextshouldbepenalized.
+describedRagas,ourimplementationofthethree
+Given an answer and context, assign a
+consideredqualityaspects. Thisframeworkiseasy
+scoreforfaithfulnessintherange0-10.
+to use and can provide deverlopers of RAG sys-
+context: [context]
+tems with valuable insights, even in the absence
+answer: [answer]
+ofanygroundtruth. OurevaluationonWikiEval
+Ties,wherethesamescoreisassignedbytheLLM has shown that the predictions from Ragas are
+tobothanswercandidates,werebrokenrandomly. closelyalignedwithhumanpredictions,especially
+The second baseline, shown as GPT Ranking, in- forfaithfulnessandanswerrelevance.
+steadasksChatGPTtoselectthepreferredanswer/-
+
+[[page:6]]
+References Kaplan.2022. Languagemodels(mostly)knowwhat
+theyknow. CoRR,abs/2207.05221.
+Amos Azaria and Tom M. Mitchell. 2023. The inter-
+nal state of an LLM knows when its lying. CoRR, Nikhil Kandpal, Haikang Deng, Adam Roberts, Eric
+abs/2304.13734. Wallace, and Colin Raffel. 2022. Large language
+modelsstruggletolearnlong-tailknowledge. CoRR,
+SebastianBorgeaud,ArthurMensch,JordanHoffmann, abs/2211.08411.
+TrevorCai,ElizaRutherford,KatieMillican,George
+vandenDriessche, Jean-BaptisteLespiau, Bogdan UrvashiKhandelwal,OmerLevy,DanJurafsky,Luke
+Damoc,AidanClark,DiegodeLasCasas,Aurelia Zettlemoyer,andMikeLewis.2020. Generalization
+Guy, Jacob Menick, Roman Ring, Tom Hennigan, throughmemorization: Nearestneighborlanguage
+SaffronHuang,LorenMaggiore,ChrisJones,Albin models. In8thInternationalConferenceonLearning
+Cassirer, AndyBrock,MichelaPaganini, Geoffrey Representations,ICLR2020,AddisAbaba,Ethiopia,
+Irving, Oriol Vinyals, Simon Osindero, Karen Si- April26-30,2020.OpenReview.net.
+monyan,JackW.Rae,ErichElsen,andLaurentSifre.
+Omar Khattab, Keshav Santhanam, Xiang Lisa Li,
+2022. Improvinglanguagemodelsbyretrievingfrom
+David Hall, Percy Liang, Christopher Potts, and
+trillionsoftokens. InInternationalConferenceon
+Matei Zaharia. 2022. Demonstrate-search-predict:
+MachineLearning,ICML2022,17-23July2022,Bal-
+Composing retrieval and language models for
+timore,Maryland,USA,volume162ofProceedings
+knowledge-intensiveNLP. CoRR,abs/2212.14024.
+of Machine Learning Research, pages 2206–2240.
+PMLR. KentonLee,Ming-WeiChang,andKristinaToutanova.
+2019. Latentretrievalforweaklysupervisedopendo-
+Sébastien Bubeck, Varun Chandrasekaran, Ronen El-
+mainquestionanswering. InProceedingsofthe57th
+dan, Johannes Gehrke, Eric Horvitz, Ece Kamar,
+AnnualMeetingoftheAssociationforComputational
+Peter Lee, Yin Tat Lee, Yuanzhi Li, Scott Lund-
+Linguistics,pages6086–6096.
+berg,etal.2023. Sparksofartificialgeneralintelli-
+gence: Earlyexperimentswithgpt-4. arXivpreprint Patrick S. H. Lewis, Ethan Perez, Aleksandra Pik-
+arXiv:2303.12712. tus, Fabio Petroni, Vladimir Karpukhin, Naman
+Goyal,HeinrichKüttler,MikeLewis,Wen-tauYih,
+Jacob Devlin, Ming-Wei Chang, Kenton Lee, and Tim Rocktäschel, Sebastian Riedel, and Douwe
+Kristina Toutanova. 2019. BERT: Pre-training of Kiela. 2020. Retrieval-augmented generation for
+deepbidirectionaltransformersforlanguageunder- knowledge-intensiveNLPtasks. InAdvancesinNeu-
+standing. InProceedingsofthe2019Conferenceof ralInformationProcessingSystems33: AnnualCon-
+theNorthAmericanChapteroftheAssociationfor ferenceonNeuralInformationProcessingSystems
+ComputationalLinguistics: HumanLanguageTech- 2020,NeurIPS2020,December6-12,2020,virtual.
+nologies,Volume1(LongandShortPapers),pages
+4171–4186,Minneapolis,Minnesota.Associationfor JunyiLi,XiaoxueCheng,WayneXinZhao,Jian-Yun
+ComputationalLinguistics. Nie, and Ji-Rong Wen. 2023. Halueval: A large-
+scalehallucination evaluationbenchmark forlarge
+JinlanFu,See-KiongNg,ZhengbaoJiang,andPengfei languagemodels. CoRR,abs/2305.11747.
+Liu.2023. Gptscore: Evaluateasyoudesire. CoRR,
+NelsonF.Liu,KevinLin,JohnHewitt,AshwinParan-
+abs/2302.04166.
+jape,MicheleBevilacqua,FabioPetroni,andPercy
+Liang. 2023. Lost in the middle: How language
+KelvinGuu,KentonLee,ZoraTung,PanupongPasu-
+modelsuselongcontexts.
+pat,andMingweiChang.2020. Retrievalaugmented
+languagemodelpre-training. InInternationalconfer-
+AlexMallen,AkariAsai,VictorZhong,RajarshiDas,
+enceonmachinelearning,pages3929–3938.PMLR.
+Daniel Khashabi, and Hannaneh Hajishirzi. 2023.
+When not to trust language models: Investigating
+ZiweiJi,NayeonLee,RitaFrieske,TiezhengYu,Dan
+effectivenessofparametricandnon-parametricmem-
+Su, Yan Xu, Etsuko Ishii, Ye Jin Bang, Andrea
+ories. InProceedingsofthe61stAnnualMeetingof
+Madotto,andPascaleFung.2023. Surveyofhalluci-
+theAssociationforComputationalLinguistics(Vol-
+nationinnaturallanguagegeneration. ACMComput-
+ume 1: Long Papers), pages 9802–9822, Toronto,
+ingSurveys,55(12):1–38.
+Canada.AssociationforComputationalLinguistics.
+SauravKadavath,TomConerly,AmandaAskell,Tom
+PotsaweeManakul,AdianLiusie,andMarkJ.F.Gales.
+Henighan, Dawn Drain, Ethan Perez, Nicholas
+2023. Selfcheckgpt: Zero-resource black-box hal-
+Schiefer,ZacHatfield-Dodds,NovaDasSarma,Eli
+lucination detection for generative large language
+Tran-Johnson,ScottJohnston,SheerElShowk,Andy
+models. CoRR,abs/2303.08896.
+Jones, Nelson Elhage, Tristan Hume, Anna Chen,
+Yuntao Bai, Sam Bowman, Stanislav Fort, Deep Sewon Min, Kalpesh Krishna, Xinxi Lyu, Mike
+Ganguli, Danny Hernandez, Josh Jacobson, Jack- Lewis, Wen-tau Yih, Pang Wei Koh, Mohit Iyyer,
+son Kernion, Shauna Kravec, Liane Lovitt, Ka- Luke Zettlemoyer, and Hannaneh Hajishirzi. 2023.
+malNdousse,CatherineOlsson,SamRinger,Dario Factscore: Fine-grained atomic evaluation of fac-
+Amodei,TomBrown,JackClark,NicholasJoseph, tualprecisioninlongformtextgeneration. CoRR,
+BenMann,SamMcCandlish,ChrisOlah,andJared abs/2305.14251.
+
+[[page:7]]
+OriRam,YoavLevine,ItayDalmedigos,DorMuhlgay, A ExamplesfromWikiEval
+Amnon Shashua, Kevin Leyton-Brown, and Yoav
+Shoham.2023. In-contextretrieval-augmentedlan- Tables2,3and4showexamplesfromtheWikiEval
+guagemodels. CoRR,abs/2302.00083. dataset,focusinginparticularonanswerswithhigh
+andlowfaithfulness(Table2),highandlowanswer
+AdamRoberts,ColinRaffel,andNoamShazeer.2020.
+relevance(Table3),andhighandlowcontextrele-
+Howmuchknowledgecanyoupackintotheparam-
+vance(Table4).
+eters of a language model? In Proceedings of the
+2020ConferenceonEmpiricalMethodsinNatural
+LanguageProcessing(EMNLP),pages5418–5426,
+Online.AssociationforComputationalLinguistics.
+WeijiaShi,SewonMin,MichihiroYasunaga,Minjoon
+Seo,RichJames,MikeLewis,LukeZettlemoyer,and
+Wen-tauYih.2023. REPLUG:retrieval-augmented
+black-boxlanguagemodels. CoRR,abs/2301.12652.
+Jiaan Wang, Yunlong Liang, Fandong Meng, Haoxi-
+ang Shi, Zhixu Li, Jinan Xu, Jianfeng Qu, and Jie
+Zhou.2023a. IschatgptagoodNLGevaluator? A
+preliminarystudy. CoRR,abs/2303.04048.
+PeiyiWang,LeiLi,LiangChen,DaweiZhu,Binghuai
+Lin,YunboCao,QiLiu,TianyuLiu,andZhifangSui.
+2023b. Largelanguagemodelsarenotfairevaluators.
+CoRR,abs/2305.17926.
+ShufanWang,YixiaoSong,AndrewDrozdov,Aparna
+Garimella, Varun Manjunatha, and Mohit Iyyer.
+2023c. KNN-LMdoesnotimproveopen-endedtext
+generation. CoRR,abs/2305.14625.
+WeizheYuan,GrahamNeubig,andPengfeiLiu.2021.
+Bartscore: Evaluatinggeneratedtextastextgenera-
+tion. InAdvancesinNeuralInformationProcessing
+Systems34: AnnualConferenceonNeuralInforma-
+tion Processing Systems 2021, NeurIPS 2021, De-
+cember6-14,2021,virtual,pages27263–27277.
+TianhuaZhang,HongyinLuo,Yung-SungChuang,Wei
+Fang,LucGaitskell,ThomasHartvigsen,XixinWu,
+DannyFox,HelenMeng,andJamesR.Glass.2023.
+Interpretable unified language checking. CoRR,
+abs/2304.03728.
+Tianyi Zhang, Varsha Kishore, Felix Wu, Kilian Q.
+Weinberger,andYoavArtzi.2020. Bertscore: Evalu-
+atingtextgenerationwithBERT. In8thInternational
+ConferenceonLearningRepresentations,ICLR2020,
+AddisAbaba,Ethiopia,April26-30,2020.OpenRe-
+view.net.
+WeiZhao,MaximePeyrard,FeiLiu,YangGao,Chris-
+tianM.Meyer,andSteffenEger.2019. MoverScore:
+Textgenerationevaluatingwithcontextualizedem-
+beddingsandearthmoverdistance. InProceedings
+of the 2019 Conference on Empirical Methods in
+Natural Language Processing and the 9th Interna-
+tional Joint Conference on Natural Language Pro-
+cessing (EMNLP-IJCNLP), pages 563–578, Hong
+Kong, China. Association for Computational Lin-
+guistics.
+
+[[page:8]]
+Question Context Answer
+WhodirectedthefilmOp- Oppenheimerisa2023biographicalthrillerfilmwritten High Faithfulness: Christopher
+penheimerandwhostars anddirectedbyChristopherNolan.Basedonthe2005 Nolan directed the film Oppen-
+asJ.RobertOppenheimer biographyAmericanPrometheusbyKaiBirdandMar- heimer.CillianMurphystarsasJ.
+inthefilm? tinJ.Sherwin,thefilmchroniclesthelifeofJ.Robert RobertOppenheimerinthefilm.
+Oppenheimer,atheoreticalphysicistwhowaspivotalin Low Faithfulness: James
+developingthefirstnuclearweaponsaspartoftheMan- Cameron directed the film Op-
+hattanProject,andtherebyusheringintheAtomicAge. penheimer.TomCruisestarsasJ.
+CillianMurphystarsasOppenheimer,withEmilyBlunt RobertOppenheimerinthefilm.
+asOppenheimer’swifeKatherine"Kitty"Oppenheimer.
+Table2: ExamplefromWikiEval,showinganswerswithhighandlowfaithfulness.
+Question Answer
+When is the scheduled Highanswerrelevance:ThePSLV-C56missionisscheduledtobelaunchedonSunday,30
+launchdateandtimefor July2023at06:30IST/01:00UTC.ItwillbelaunchedfromtheSatishDhawanSpace
+the PSLV-C56 mission, Centre,Sriharikota,AndhraPradesh,India.
+and where will it be Lowanswerrelevance:ThescheduledlaunchdateandtimeforthePSLV-C56missionhave
+launchedfrom? notbeenprovided.ThePSLV-C56missionisanimportantspacemissionforIndia.Itaimsto
+launchasatelliteintoorbittostudyweatherpatterns.
+Table3: ExamplefromWikiEval,showinganswerswithhighandlowanswerrelevance.
+Question Context
+WhenwastheChimnabai Highcontextrelevance:TheChimnabaiClockTower,alsoknownastheRaopuraTower,is
+ClockTowercompleted, aclocktowersituatedintheRaopuraareaofVadodara,Gujarat,India. Itwascompleted
+andwhowasitnamedaf- in1896andnamedinmemoryofChimnabaiI(1864–1885),aqueenandthefirstwifeof
+ter? SayajiraoGaekwadIIIofBarodaState.
+Lowcontextrelevance:TheChimnabaiClockTower,alsoknownastheRaopuraTower,is
+aclocktowersituatedintheRaopuraareaofVadodara,Gujarat,India. Itwascompleted
+in1896andnamedinmemoryofChimnabaiI(1864–1885),aqueenandthefirstwifeof
+SayajiraoGaekwadIIIofBarodaState. ItwasbuiltinIndo-Saracenicarchitecturestyle.
+History.ChimnabaiClockTowerwasbuiltin1896.ThetowerwasnamedafterChimnabai
+I(1864–1885),aqueenandthefirstwifeofSayajiraoGaekwadIIIofBarodaState.Itwas
+inauguratedbyMirKamaluddinHussainkhan,thelastNawabofBaroda.Duringtheruleof
+Gaekwad,itwasastoppageforhorsedrawntrams.Theclocktowerwaserectedatthecost
+of25,000(equivalentto9.2millionorUSD120,000in2023).
+Table4: ExamplefromWikiEval,showinganswerswithhighandlowcontextrelevance.

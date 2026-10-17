@@ -1,0 +1,2015 @@
+[[page:1]]
+A Comprehensive Survey on Vector Database: Storage and Retrieval
+Technique, Challenge
+LeMaa (Equal), RanZhangb (Equal), YikunHanc (Equal), ShiruiYud,e, ZaitianWangb,
+ZhiyuanNingb, JinghanZhangf, PingXub, PengjiangLib, ZiyueQiaog, WeiJuh, ChongCheni,
+DongjieWangj, KunpengLiuf, PengyangWangk, PengfeiWangb, YanjieFul, ChunjiangLiud,e
+(Corresponding), YuanchunZhoub and Chang-TienLum
+aSichuanUniversity,DepartmentofInformationResourcesManagement,SchoolofPublicAdministration,Chengdu,610041,China
+bComputerNetworkInformationCenter,ChineseAcademyofSciences,UniversityofChineseAcademyofSciences,Beijing,100190,China
+cUniversityofIllinoisUrbana-Champaign,SchoolofInformationSciences,Champaign,61820,UnitedStates
+dNationalScienceLibrary(Chengdu),ChineseAcademyofSciences,DepartmentofInformationResourcesManagement,SchoolofEconomicsand
+Management,Chengdu,610041,China
+eUniversityofChineseAcademyofSciences,DepartmentofInformationResourcesManagement,SchoolofEconomicsand
+Management,Beijing,101408,China
+fPortlandStateUniversity,DepartmentofComputerScience,Portland,101408,UnitedStates
+gGreatBayUniversity,SchoolofComputingandInformationTechnology,Dongguan,523000,China
+hSichuanUniversity,CollegeofComputerScience,Chengdu,610041,China
+iTerminusGroup,theFutureCityLab,Beijing,100032,China
+jUniversityofKansas,DepartmentofElectricalEngineeringandComputerScience,Lawrence,66045,UnitedStates
+kUniversityofMacau,DepartmentofComputerandInformationScience,TheStateKeyLaboratoryofInternetofThingsforSmart
+City,Macau,999078,China
+lArizonaStateUniversity,,Tempe,85287,UnitedStates
+mVirginiaTech,,Blacksburg,24061,UnitedStates
+ARTICLE INFO ABSTRACT
+Keywords: As high-dimensional vector data increasingly surpasses the processing capabilities of traditional
+Vectordatabase databasemanagementsystems,VectorDatabases(VDBs)haveemergedandbecometightlyintegrated
+Similaritysearch withlargelanguagemodels,beingwidelyappliedinmodernartificialintelligencesystems.However,
+Indexingtechniques existingresearchhasprimarilyfocusedonunderlyingtechnologiessuchasapproximatenearestneigh-
+Machinelearningembeddings borsearch,withrelativelyfewstudiesprovidingasystematicarchitectural-levelreviewofVDBsor
+Largelanguagemodels analyzinghowthesecoretechnologiescollectivelysupporttheoverallcapacityofVDBs.Thissurvey
+AIinfrastructure aimstoofferacomprehensiveoverviewofthecoredesignsandalgorithmsofVDBs,establishing
+a holistic understanding of this rapidly evolving field. [Methods] First, we systematically review
+thekeytechnologiesanddesignprinciplesofVDBsfromthetwocoredimensionsofstorageand
+retrieval,tracingtheirtechnologicalevolution.Next,weconductanin-depthcomparisonofseveral
+mainstream VDB architectures, summarizing their strengths, limitations, and typical application
+scenarios.Finally,weexploreemergingdirectionsforintegratingVDBswithlargelanguagemodels,
+includingopenresearchchallengesandtrendssuchasnovelindexingstrategies.[Conclusions]This
+surveyservesasasystematicreferenceguideforresearchersandpractitioners,helpingreadersquickly
+grasp the technological landscape and development trends in the field of vector databases, and
+promotingfurtherinnovationinboththeoreticalandappliedaspects.
+foundation of many artificial intelligence (AI) applications
+1. Introduction
+(including large language models (LLMs) [121], question-
+Vectors, particularly those in high-dimensional spaces,
+answering systems [6, 18], image recognition [119], rec-
+are mathematical representations of data, encoding the se-
+ommendation systems [71, 123], etc.). However, in terms
+mantic and contextual information of entities such as text,
+of managing and retrieving high-dimensional vector data,
+images,audio,andvideo[21,93].Thesevectorsaregener-
+traditional databases designed for handling structured data
+allygeneratedthroughsomerelatedmachinelearningmod-
+areofteninadequate.Vectordatabases(VDBs),ontheother
+els,andthegeneratedvectorsareusuallyhigh-dimensional
+hand,provideaspecializedsolutiontothesechallenges.
+and can be used for similarity comparison. The step of
+VDBsaretoolsspecificallydesignedtoefficientlystore
+converting original unstructured data into vectors is the
+and manage high-dimensional vectors. Specifically, VDBs
+⋆ThisresearchwassupportedbytheNationalNaturalScienceFounda- store information as high-dimensional vectors, which are
+tionofChina. mathematicalrepresentationsofdatafeaturesorattributes[103].
+⋆⋆ThisworkwaspartiallysupportedbytheChineseAcademyofSci- Dependingonthecomplexityandgranularityoftheunder-
+ences. lyingdata,thedimensionsofthesehigh-dimensionalvectors
+∗Correspondingauthor.
+usually range from dozens to thousands. Unlike traditional
+ORCID(s):
+1Theseauthorscontributedequallytothiswork. relational databases, VDBs provide efficient mechanisms
+Ma et al.: PreprintsubmittedtoElsevier Page1of25
+6202
+raM
+42
+]BD.sc[
+4v30711.0132:viXra
+
+[[page:2]]
+Survey on Vector Database
+Features VS
+ShSahrdairndging Multiple Geographic Sharding
+Machines Range- Hash- Loading capacity
+Partitioning Single based based List- K-Means
+Machines Based Partitioning Search performance
+CacheEvictionAlgorithms CachingMethod
+Caching
+FIFO MRU LFU Partitioned Cache
+Index Support for Distributed
+Leader-Follower Multi-Leader Leaderless Construction and Heterogeneou Parallel
+Searching High
+Replication Dimensional s Vector Data Processing
+Vectors Types Support
+Int M e M g ai r a n a c s t h i t o r i e n n a e w m i th wi I t n h t e e g m ra e t r i g o i n n g D a a n t d a p se ri c v u a r c i y ty
+Learning application protection
+Frameworks scenarios
+Nearest Neighbor Search Brute Force Tree-Based
+Approach Approach
+Approximate Nearest Neighbor Search KeyApproaches
+Quantization-
+Based Graph-Based Hash-Based
+Product Hierarchical Local-Sensitive Vector Databases for LLMs LLMs for Vector Databases
+Quantization Sm Na a v ll ig W a o b r l l e d s Hashing DBManagement Tasks
+RAG Memory
+Vector Data Handling
+A General LLMs and Vector Databases Synergized Framework
+Figure 1: Framework overview of this survey structure covering Storage Techniques, Search Techniques, Database Comparison,
+Challenges, and the Synergy of Large Language Models (LLMs) with VDBs. Each section represents a fundamental facet of the
+operation and integration of modern VDBs within advanced AI technologies.
+for large-scale storage, management, and search of high- great granularity and complexity using VDBs. However,
+dimensionalvectors[61,106,113].Thesemechanismsbring traditional databases, such as relational databases, are dif-
+various efficient functions to VDBs, such as supporting ficult to store this kind of data information well [90]. (3)
+semanticsimilaritysearch,efficientlymanaginglarge-scale VDBs are very scalable and have real-time data process-
+data,andprovidinglow-latencyresponses.Thesefunctions ing capabilities. Large volumes of real-time datasets and
+make VDBs increasingly integrated into AI-based applica- unstructured data are difficult for traditional databases to
+tions. VDBs have two core functions: vector storage and handleefficiently[94].
+vector retrieval. The vector storage function relies on tech- However,duetotheirabilitytoprocessvectordataona
+niques such as quantization, compression, and distributed large scale and in real time, VDBs are crucial for modern
+storage mechanisms to improve efficiency and scalability. data science and artificial intelligence [107]. Through the
+The retrieval function of VDBs relies on specialized in- use of technologies like caching, replication, partitioning,
+dexing techniques, including tree-based methods, hashing and sharding [98], VDBs can optimize resource utilization
+methods[122],graph-basedmodels,andquantization-based anddivideworkloadsamongmultiplemachinesorclusters.
+techniques[109].Theseindexingtechniquesoptimizehigh- However,whendealingwithbigdata,traditionaldatabases
+dimensional similarity search by reducing computational might experience concurrency conflicts, latency problems,
+cost and improving search performance. In addition, hard- orscalabilitybottlenecks[89].
+wareaccelerationandcloud-basedtechnologieshavefurther Recent surveys on VDBs primarily cover fundamental
+enhancedthecapabilitiesofVDBs,makingthemsuitablefor concepts and practical applications of VDBs and vector
+large-scaleandreal-timeapplications[55,60,68]. databasemanagementsystems.Somestudies[89,101,113]
+Consequently, VDBs offer three key benefits over tra- focus on the workflow and technical challenges of VDBs,
+ditional databases: (1) VDBs can retrieve vectors accu- including key aspects such as query processing, optimiza-
+ratelyandefficiently.VDBs’primarypurposeistoretrieve tion, and execution techniques. And some works [57] ex-
+pertinentvectorsbasedonvectorsimilarity(distance); this plore the critical role of VDBs in modern generative AI
+function is also at the heart of applications like recom- applicationsandprovideanoutlookonthefutureofVDBs.
+mendation systems, computer vision, and natural language Whilethesestudieshavetheirrespectivefocuses,theydonot
+processing(NLP)[84,89].Incontrast,traditionaldatabases provide a comprehensive survey of the overall storage and
+canonlyquerydatabasedonexactmatchingorpredefined searchtechnologiesinVDBs,nordeliverathoroughanalysis
+conditions,andthiskindofquerymethodisrelativelyslow comparingthecapabilitiesofexistingVDBs.Furthermore,
+and often does not consider the semantic information of there is limited exploration of how these systems can inte-
+the data itself. (2) VDBs can be used to store and query gratewithrapidlyadvancingAItechnologies,suchaslarge
+complexandunstructureddata.Text,images,audio,video, languagemodels(LLMs),tosupportmoderndata-intensive
+andothertypesofdatacanallbestoredandsearchedwith applications.
+Ma et al.: PreprintsubmittedtoElsevier Page 2 of 25
+
+[[page:3]]
+Survey on Vector Database
+Storage
+Sharding Partitioning Caching Replication
+S R B h a a a n r s d g e i e d n - g [16] Par R ti a t n io g n e i ng [ [ 2 2 7 8 ] ] Pa K r - t M iti e o a n n i s n g [87] F F ir i s rs t- t O -In u t [41] [42] [79] Fre L U q e s u a e e s d n t tly [62] [89] R F e L o p e l l a l i o c d a w e t r e i - o r n [84]
+S B h H a a a r s s d e h i d n - g [ [ 1 5 6 7 ] ] [ [ 2 5 4 8 ] ] [ [ 3 8 1 0 ] ] Part L it i i s o t n ing [50] [51] Re L U c e s e a e n s d t t l y [79] Pa C rt a it c io h n e ed [81] Re L p M e li u a c d l a t e i t - i r o n [37] [38]
+G S e h o a g r r d a i p n h g i c [98] [115] H P a a s rt h it - i b o a n s in e g d [1] [2] [45] Re U M c s o e e s n d t t ly [43] R Le e a p d li e c r a l t e io ss n [14] [26]
+Nearest Neighbor Search
+Tree-Based
+Approach KD-Tree [17] [40] Ball-Tree [30] [71] [83] R-Tree [47] M-Tree [23]
+[24]
+Approximate Nearest Neighbor Search
+Tree-Based Graph-Based
+Hash-Based Approach Quantization-Based Approach
+Approach Approach
+S H e L a n o s s c h i a t in i l v - g e [8] [9] [10] [ 5 [1 3 1 ] ] [19] [25] Ne A o a p r r s p e r O s o t h x N i Y m e e i a g a t h h e b- [32] Na W S v m i o g r a a l l d b l le [90] [113] [114] F I i n le v e In rt d e e d x [72] Qu P a r n o t d iz u a c ti t o n [55] [78]
+Scalable InvertedFile
+S H p a e s c h t i r n a g l [109] S H p a h s e h r i i n c g al [49] Be F s ir t s B t in [68] [94] H N ie a r v a ig c a h b ic le a l [76] N N e e ig a h re b s o t r [46] [97] qu P a r n o t d iz u a c ti t o n [1 [4 0 5 3 ] ]
+Ha D s e h e i p n g [4] [69] [74] [75] K-m Tr e e a e n s [86] Small World Q O u P a p r n t o i t m d iz u i a z c t e i t o d n [39] [66] Qu P a O r n o n t d l i i z u n a c e ti t o n [3] [112]
+Figure 2: Taxonomy of VDB Storage and Search Technologies.
+This research gap emphasizes the need for a thorough fourkeytechniques:shardingandpartitioningfordatadis-
+surveythataimstointegratetheexistingbodyofknowledge tribution,cachingforreducingquerylatency,andreplication
+regarding VDBs and identify the main research issues that forensuringavailabilityandfaulttolerance.
+require immediate attention. The following are the main
+2.1. Sharding
+contributionsoursurveymakestoaddressthisissue: Sharding spreads a VDB across several computers or
+clusters,calledshards,byroutingrecordsusingarulesuch
+• We organized and reviewed the storage and retrieval
+asahashorakeyrange.Bycuttingthedatasetintosmaller
+technologiesinVDBsinamethodicalmanner.
+pieces,shardinghelpsthesystemscale,sharesworkevenly,
+• Tohighlighttheadvantagesanddisadvantagesofeach andaddsresiliencewhenasinglenodefails.Differentshard-
+open-source VDB, we conducted thorough perfor- ing methods target specific goals—such as easy expan-
+mancetestingandcomparison. sion, hotspot reduction, fair size balancing, and quicker
+queries—sodesignerspicktheonethatfitstheirload.Here
+• Wewentintogreatdetailabouttheprimaryissuesthat
+wereviewthreepopularschemes:range-based,hash-based,
+VDBsarecurrentlyfacingandhowtheyintegratewith
+andgeographicsharding.
+LargeLanguageModels(LLMs).
+Range-Based Sharding. Range-based sharding is the
+This paper comprehensively summarizes the technologies simplest approach; it splits sorted keys into clean, non-
+relatedtoVDBsandsystematicallyteststheperformanceof overlappingintervalsandsendseachintervaltoitsownshard
+existing open-source VDBs. Italso provides an outlook on [16]. For example, users can shard a VDB by dividing the
+the challenges that VDBs will face in the future. Through ID column of the vector data into different ranges, such as
+the summary of this paper, researchers can deepen their 0-999, 1000-1999, 2000-2999, and so on, with each range
+understanding of the field of VDBs. Figure 1 shows the assigned to a specific shard. Each range corresponds to
+overall framework of the paper, and we also construct a a shard. This way, users can query the vector data more
+classificationsystemofstorageandsearchtechnologiesfor efficiently by specifying the shard name or range. Range-
+VDBs,asshowninFigure2. basedshardingprovidesefficientqueryperformanceandis
+simpletouseforrange-basedqueries,suchasretrievingall
+vectorswithinaspecifiedtimeframeorIDrange.However,
+2. Storage
+if key values are not distributed uniformly, this approach
+Efficientdatamanagementstrategiesareessentialforthe frequentlyresultsindataskewandunevenloaddistribution.
+performanceandscalabilityofVDBs.Thissectionexplores Use cases like time-series analytics or sequential ID-based
+Ma et al.: PreprintsubmittedtoElsevier Page 3 of 25
+
+[[page:4]]
+Survey on Vector Database
+queries,wheredataaccesspatternsarepredictable,arebest strength of range-based sharding, range-based partitioning
+suitedforrange-basedsharding. isparticularlyefficientforrange-basedqueries,asitallows
+Hash-BasedSharding.Anothercommonshardingmethod thesystemtotargetspecificpartitionsdirectly.Forexample,
+inVDBsishash-basedsharding[16,24,31],whichassigns userscanpartitionaVDBbydateranges,suchasmonthly
+vector data into different shards based on the hash value orquarterly.Thisway,userscanquerythevectordatamore
+of a key column or a set of columns. For example, users efficientlybyspecifyingthepartitionnameorrange.
+can shard a VDB by applying a hash function to the ID List-basedPartitioning.Anotherwaythatpartitioning
+columnofthevectordata.Thisletsusersspreadvectordata worksinVDBisbyusingalistpartitioningmethod,which
+evenlyacrosstheshardsandavoidhotspots.Buttraditional assigns vector data to different partitions based on their
+hash-based methods, like modulo hashing, cause problems value lists of a key column or a set of columns [51, 52].
+when scaling a cluster. When users add or remove shards, Forexample,userscanpartitionavectordatabasebycolor
+a large amount of data must be moved. To fix this, many values,suchasred,yellow,andblue.Eachpartitioncontains
+distributed VDBs use consistent hashing. Unlike regular vector data that has a given value of the color column.
+hashing, consistent hashing puts both data and nodes on a This way, users can query the vector data more easily by
+ring-shapedhashspace.Whenanodeisaddedorremoved, specifyingthepartitionnameorlists.
+only a small part of the data (O(1/N)) needs to move. This K-MeansPartitioning.Athirdpartitioningmethodfor
+helpsreducetheamountofdatathatmustbechangedduring VDBs is k-means partitioning [90], which divides vector
+scaling. It also keeps the data balanced across the system. data into a predetermined number (k) of clusters. Each
+Also, virtual nodes (copies of physical nodes on the hash cluster represents a partition, with vectors within the same
+ring)helpwithloadbalancing.Theyspreadthetrafficmore clusterbeingsimilartoeachotherandvectorsbetweenclus-
+evenly and reduce hotspots. Although consistent hashing tersdifferingsignificantly.Similarvectorsareplacedinthe
+introduces slight computational complexity, its advantages same partition, which improves query efficiency. However,
+in dynamic environments make it a preferred choice for for large-scale datasets, the computational cost of k-means
+moderndistributedsystems[58,59,82]. clustering can be high, especially when frequent updates
+Geographic Sharding. This method puts data into necessitatere-clustering.
+shards based on location, such as user region [100, 118]. Hash-based Partitioning. Alternatively, some VDBs
+A VDB can split data using a "region" field and send adopt hash-based partitioning, such as consistent or uni-
+it to different zones like "North America" or "Europe." formhashing[1,2,46].Specifically,thehashingpartition-
+Geo-sharding helps with apps that need low delay, like ing strategy uses a hash function to map data to different
+recommendationsystems.Storingdataclosetouserslowers partitions. The hash value of each data point determines
+networkdelay.Italsohelpsfollowlocaldataregulations. which partition it belongs to. In VDBs, the hash value is
+typically calculated based on certain features of the vector
+2.2. Partitioning
+Partitioning means splitting data in one database into (for example, values of specific dimensions or the entire
+smaller parts based on simple rules like range, list, or K- vector).Thehashfunctioncanevenlydistributedataacross
+means.Allthedatastaysinthesamephysicalsystem.This partitions, preventing any single partition from storing too
+method helps make queries faster. For example, users can muchdata.However,whenthedatadistributionisuneven,it
+splitaVDBbycolorvalueslikered,yellow,andblue.Each mayleadtosomepartitionsbecomingoverloaded.Addition-
+part holds vector data with a certain value in the “color” ally,whenthenodenumberchanges,hash-basedpartitioning
+column. Queries can then target specific partitions, avoid- mayrequiretheredistributionofthelargedataset,whichcan
+ing unnecessary scans of unrelated data. While sharding is incursignificantoverhead.
+used to distribute data across multiple machines, it helps 2.3. Caching
+systems scale horizontally. Partitioning, on the other hand, Cachingplaysacentralroleinoptimizingtheefficiency
+isusedtoorganizedatawithinasinglemachinetoimprove ofdata-intensivesystems.InthecontextofVDBs,caching
+localaccessandperformance.Usingbothtogetherhelpsthe helps reduce latency and improve retrieval speed by tem-
+VDBshandlelargedataandfastqueries—shardingspreads porarily storing vectors that are frequently accessed or re-
+the data across many machines, and partitioning makes cently used. While traditional databases often rely on in-
+data access faster inside each shard. Partitioning strategies memorykey-valuestoreslikeRedistocachestructureddata
+change based on the type of data and what the application usingpredefinedquerykeys,thisapproachdoesnotdirectly
+needs. This section looks at four common methods. These translatetothevectorspace.Thereasonliesinthenatureof
+arerangepartitioning,listpartitioning,k-meanspartitioning, thedata:vectorsarehigh-dimensionalandcontinuous,mak-
+and hash-based partitioning. Each method has its own use ingexactmatchesacrossqueriesrare.AsVDBsincreasingly
+caseandworksbestunderdifferentconditions. serve workloads such as similarity search or embedding
+Range-basedPartitioning.Range-basedpartitioningis retrieval, the need for tailored caching strategies becomes
+amethodwidelyusedinVDBs,wheredataisdividedinto clear. General caching algorithms—originally designed for
+non-overlappingkeyrangestoformpartitions[27,28].Each webcontentorstructureddata—mustberevisitedinlightof
+range corresponds to a specific subset of data based on a theuniqueaccesspatternsanddatacharacteristicsfoundin
+sorted key (e.g., timestamps, numeric IDs). Similar to the vectorsystems.Inthissection,wediscussfourwidelyused
+Ma et al.: PreprintsubmittedtoElsevier Page 4 of 25
+
+[[page:5]]
+Survey on Vector Database
+caching strategies—first-in first-out (FIFO), least recently information systems (GIS) often partition vector data by
+used(LRU),mostrecentlyused(MRU),andleastfrequently region to support fast and localized map rendering. When
+used(LFU)—aswellaspartitionedcachinginVDBdesign. configured well, partitioned caches can improve hit rates
+First-InFirst-Out(FIFO).FIFOisoneofthesimplest whilepreventingafewhigh-frequency.
+cache eviction strategies. It works by removing the oldest
+2.4. Replication
+itemsinthecacheoncespacerunsout[42,43].Internally, Replicationmeansmakingseveralcopiesofvectordata
+itmaintainsaqueuewherenewitemsareaddedtotheback andplacingthemondifferentnodesorclusters.Thishelps
+andremovalsoccurfromthefront[81].FIFOperformswell boosttheavailability,reliability,andoverallperformanceof
+inenvironmentswheredataarrivesinregularintervalsand aVDB.Inthissection,welookatthreewidelyusedreplica-
+older entries quickly lose relevance—such as time-series tionstrategies:leader-follower,multi-leader,andleaderless
+datafromIoTsensors.Itsappealliesinitsconstant-timeper- replication.
+formanceandeaseofimplementation.However,becauseit Leader-Follower Replication. Leader-Follower repli-
+ignoreshowoftenitemsareaccessed,itmayevictfrequently cationdesignatesonenodeastheleaderandtheothersasthe
+usedvectorsprematurely. followersandallowsonlytheleadertoacceptwriterequests
+Least Recently Used (LRU). The LRU algorithm pri- and propagate them to the followers [86]. Leader-follower
+oritizes keeping recently accessed items in memory. When replication can ensure strong consistency and simplify the
+the cache fills up, it evicts the vector that hasn’t been used conflictresolutionofVDB.However,itmayalsointroduce
+for the longest time, thereby improving the likelihood of availabilityissuesandrequirefailovermechanismstohandle
+cache hits [81]. This strategy aligns with many real-world leaderfailures.
+patterns—such as search engines or recommendation sys- Multi-Leader Replication. Multi-Leader replication
+tems—where recent queries are likely to be repeated. Sys- extendsthetraditionalleader-followermodelbydesignating
+tems like Redis have incorporated LRU for managing in- multiple nodes as leaders, each capable of independently
+memoryvectors.Thatsaid,LRUcanstruggleinworkloads accepting and processing write requests [38, 39]. In this
+where access patterns are periodic or long-tailed, since it architecture,allleadernodescanconcurrentlyhandlewrite
+doesn’ttracklong-termpopularity. operations and asynchronously propagate changes to other
+Most Recently Used (MRU). MRU takes the opposite nodesinthesystem.
+stance: it evicts the most recently accessed item [44]. This LeaderlessReplication.Leaderlessreplicationdoesnot
+approach can be useful in scenarios where users rarely re- distinguish between leader and follower nodes and allows
+accessthesamevectorrightafterretrieval,suchasincertain anynodetoacceptwriteandreadrequests[14,26].Leader-
+data processing pipelines or streaming tasks. However, in lessreplicationcanavoidsinglepointsoffailureandimprove
+most applications where temporal locality is strong, MRU the scalability and reliability of VDB. However, it may
+tendsto underperform,asit maydiscarditems thatwillbe also introduce consistency issues and require coordination
+queriedagainsoon. mechanismstoresolveconflicts.
+LeastFrequentlyUsed(LFU).TheLFUalgorithmisa
+frequency-basedcacheevictionmechanismthatdetermines 3. Search
+removal priority by continuously tracking the access count
+VDBsaredesignedtofacilitateefficientsimilaritysearch
+of each vector data item. The LFU algorithm maintains a
+overhigh-dimensionalvectordata,anessentialoperationin
+frequencytableandevictstheleastfrequentlyaccesseditems
+manyAIandmachinelearningapplications.Thissimilarity
+when the cache is full. A typical implementation requires
+search is typically implemented through nearest neighbor
+maintaining an access counter for each cached item, often
+search algorithms, which can be further divided into exact
+using a min-heap data structure to efficiently identify the
+nearest neighbor search (NNS) and approximate nearest
+lowest-frequency items with a time complexity of O(log
+neighborsearch(ANNS)methods.
+n)[63,91].However,theLFUalgorithmcanbesusceptible
+NNSistheoptimizationproblemoffindingthepointin
+to cache pollution, as items frequently accessed in the past
+agivensetthatisclosest(ormostsimilar)toagivenpoint.
+may linger in the cache even when they are no longer
+Closeness is typically expressed in terms of a dissimilarity
+needed. Thus, LFU is suitable for applications with stable
+function:thelesssimilartheobjects,thelargerthefunction
+andlong-livedspotdatapatterns(e.g.,popularproductrec-
+values.Forexample,userscanuseNNStofindimagesthat
+ommendations, high-frequency user profile queries), while
+are similar to a given image based on their visual content
+its effectiveness diminishes in environments with rapidly
+andstyle,ordocumentsthataresimilartoagivendocument
+evolvingaccessdistributions.
+based on their topic and sentiment. ANNS is a variation
+Partitioned Cache. Partitioned caching is a common of NNS that allows for some error or approximation in the
+approach in VDBs, wherein vector data are divided into
+search results. ANNS can trade off accuracy for speed and
+multiple partitions based on specific criteria [83], such as
+space efficiency, which can be useful for large-scale and
+geographic location, category, or access frequency. Each
+high-dimensional data. For example, users can use ANNS
+partition can have its own size and eviction policy. This
+tofindproductsthataresimilartoagivenproductbasedon
+method offers greater flexibility and better aligns caching
+theirfeaturesandratings,orusersthataresimilartoagiven
+behavior with application needs. For example, geographic
+userbasedontheirpreferencesandbehaviors.
+Ma et al.: PreprintsubmittedtoElsevier Page 5 of 25
+
+[[page:6]]
+Survey on Vector Database
+NNSalgorithmstendtousemoreexactordeterministic
+methods, such as partitioning the space into regions by
+{
+splittingalongonedimension(k-dtree)orenclosinggroups 𝑑 (𝑞,𝑁)= 0 if𝑞 𝑁.𝑎𝑥𝑖𝑠 ≥𝑁.𝑣𝑎𝑙𝑢𝑒 (2)
+of points in hyperspheres (ball tree), and visiting only the 𝑅 (𝑁.𝑣𝑎𝑙𝑢𝑒−𝑞 )2 if𝑞 <𝑁.𝑣𝑎𝑙𝑢𝑒
+𝑁.𝑎𝑥𝑖𝑠 𝑁.𝑎𝑥𝑖𝑠
+regionsthatmaycontainthenearestneighborbasedonsome
+distance bounds or criteria. ANNS algorithms tend to use
+where𝑞 isthequerypoint,𝑁 istheinternalnode,𝑁.𝑎𝑥𝑖𝑠
+more probabilistic or heuristic methods, such as mapping
+isthesplittingaxisof𝑁,and𝑁.𝑣𝑎𝑙𝑢𝑒isthesplittingvalue
+similar points to the same or nearby buckets with high
+of𝑁.Thealgorithmrepeatsthisprocessuntilthequeueis
+emptyoraterminationconditionismet.
+probability(locality-sensitivehashing),visitingtheregions
+TheadvantageofKD-treeisthatitisconceptuallysim-
+in order of their distance to the query point and stopping
+plerandofteneasiertoimplementthansomeoftheothertree
+afterafixednumberofregionsorpoints(bestbinfirst),or
+structures.TheperformanceofKD-treedependsonseveral
+followingtheedgesthatleadtocloserpointsinagraphwith
+factors,suchasthedimensionalityofthespace,thenumber
+different levels of coarseness (hierarchical navigable small
+of points, and the distribution of the points. There are also
+world).
+somechallengesandextensionsofKD-tree,suchasdealing
+Infact,adatastructureoralgorithmthatsupportsNNS
+with the curse of dimensionality when the dimensionality
+canalsobeappliedtoANNS,andforeaseofcategorization,
+is high, introducing randomness in the splitting process to
+suchmethodsareincludedunderthesectiononNNS.And
+improverobustness,orusingmultipletreestoincreaserecall.
+inrecentyears,severalnewalgorithmsforhigh-dimensional
+This is a variation of KD-tree named randomized KD-tree
+vectorNNShaveemerged[35,36,79,110,122].Although
+that introduces some randomness in the splitting process,
+thesealgorithmshavenotyetbeenwidelyadoptedbyVDBs,
+whichcanimprovetheperformanceofKD-treebyreducing
+theyholdsignificantpotentialforfutureapplications.
+itssensitivitytonoiseandoutliers[41].
+3.1. NearestNeighborSearch
+Ball-Tree [30, 72, 85]. It is a technique for finding the
+3.1.1. BruteForceApproach
+nearest neighbors of a given vector in a large collection
+A brute force algorithm for the NNS problem scans all
+of vectors. It works by building a ball-tree, which is a
+pointsinthedataset,computingtheirdistancestothequery
+binary tree that partitions the data points into balls, i.e.,
+pointandtrackingtheclosestone.Thisalgorithmguarantees
+hyperspheresthatcontainasubsetofthepoints.Eachnode
+to find the true nearest neighbor for any query point, but
+oftheball-treedefinesthesmallestballthatcontainsallthe
+it has a high computational cost. The time complexity of a
+points in its subtree. The algorithm then searches for the
+bruteforcealgorithmfortheNNSproblemis𝑂(𝑛),wheren
+closestballtothequerypointandthensearcheswithinthe
+isthesizeofthedataset.Thespacecomplexityis𝑂(1),since
+closestballtofindtheclosestpointtothequerypoint.
+noextraspaceisneeded.
+To query for the nearest neighbor of a given point, the
+ball tree algorithm uses a priority queue to store the nodes
+3.1.2. Tree-BasedApproach
+to be visited, sorted by their distance to the query point.
+Fourtree-basedmethodswillbepresentedhere,namely
+The algorithm starts from the root node and pushes its
+k-dimensional tree (KD-Tree), Ball-Tree, R-Tree, and M-
+two children to the queue. Then, it pops the node with the
+Tree.
+smallest distance from the queue and checks if it is a leaf
+KD-Tree [17]. It is a technique for organizing points
+node or an internal node. If it is a leaf node, it computes
+in a k-dimensional space, where k is usually a very big
+thedistancebetweenthequerypointandeachdatapointin
+number. It works by building a binary tree in which every
+the node and updates the current best distance and nearest
+node is a k-dimensional point. Every non-leaf node in the
+neighborifnecessary.Ifitisaninternalnode,itpushesits
+treeactsasasplittinghyperplanethatdividesthespaceinto
+twochildrentothequeue,withtheirdistancescomputedas
+twoparts,knownashalf-spaces.Thesplittinghyperplaneis
+follows:
+perpendicular to the chosen axis, which is associated with
+one of the k dimensions. The splitting value is usually the 𝑑
+𝐿
+(𝑞,𝑁)=max(0,𝑁.𝑣𝑎𝑙𝑢𝑒−‖𝑞−𝑁.𝑐𝑒𝑛𝑡𝑒𝑟‖)
+(3)
+medianorthemeanofthepointsalongthatdimension. 𝑑
+𝑅
+(𝑞,𝑁)=max(0,‖𝑞−𝑁.𝑐𝑒𝑛𝑡𝑒𝑟‖−𝑁.𝑣𝑎𝑙𝑢𝑒)
+The algorithm maintains a priority queue of nodes to
+visit, sorted by their distance to the query point. At each
+where𝑞isthequerypoint,𝑁 istheinternalnode,𝑁.𝑐𝑒𝑛𝑡𝑒𝑟
+step,thealgorithmpopsthenodewiththesmallestdistance is the center of the ball associated with 𝑁, and 𝑁.𝑣𝑎𝑙𝑢𝑒
+fromthequeueandchecksifitisaleafnodeoraninternal
+is the radius of the ball associated with 𝑁. The algorithm
+repeatsthisprocessuntilthequeueisemptyoratermination
+node.Ifitisaleafnode,thealgorithmcomparesthedistance
+conditionismet.
+betweenthequerypointandthedatapointstoredinthenode
+Theadvantageofball-treeisthatitcanperformwellin
+and updates the current best distance and nearest neighbor
+high-dimensionalspaces,asitcanavoidthecurseofdimen-
+if necessary. If it is an internal node, the algorithm pushes
+sionality that affects other methods , such as KD-tree. The
+itsleftandrightchildrentothequeue,withtheirdistances
+performanceofball-treedependsonseveralfactors,suchas
+computedasfollows:
+thedimensionalityofthedata,thenumberofballspernode,
+{ 0 if𝑞 ≤𝑁.𝑣𝑎𝑙𝑢𝑒 andthedistanceapproximationmethodused.Therearealso
+𝑑 (𝑞,𝑁)= 𝑁.𝑎𝑥𝑖𝑠 (1)
+𝐿 (𝑞 −𝑁.𝑣𝑎𝑙𝑢𝑒)2 if𝑞 >𝑁.𝑣𝑎𝑙𝑢𝑒 somechallengesandextensionsofball-treesearch,suchas
+𝑁.𝑎𝑥𝑖𝑠 𝑁.𝑎𝑥𝑖𝑠
+Ma et al.: PreprintsubmittedtoElsevier Page 6 of 25
+
+[[page:7]]
+Survey on Vector Database
+dealingwithnoisyandoutlierdata,choosingagoodsplitting TheM-treealgorithmalsousestwometricstomeasure
+dimensionandvalueforeachnode,orusingmultipletrees the quality of a node split: area and overlap. The area of a
+toincreaserecall. nodeisthesumoftheareasofitschildren’scoveringballs,
+R-Tree [48]. It is a technique for finding the nearest andtheoverlapoftwonodesisthesumoftheareasoftheir
+neighborsofagivenvectorinalargecollectionofvectors. children’soverlappingballs.Theformulaforcomputingthe
+ItworksbybuildinganR-tree,whichisatreedatastructure areaofanode𝑁 is:
+thatpartitionsthedatapointsintorectangles,i.e.,hyperrect-
+∑
+anglesthatcontainasubsetofthepoints.EachnodeoftheR- area(𝑁)= 𝜋𝑟(𝐶)2 (7)
+treedefinesthesmallestrectanglethatcontainsallthepoints 𝐶∈N.child
+in its subtree. The algorithm then searches for the closest
+rectangle to the query point and then searches within the
+where𝜋isthemathematicalconstant,and𝑟(𝐶)isthecover-
+ingradiusofchildnode𝐶.TheadvantageofM-treeisthatit
+closestrectangletofindtheclosestpointtothequerypoint.
+cansupportdynamicoperations,suchasinsertingordeleting
+The R-tree algorithm uses the concept of minimum
+data points, by updating the tree structure accordingly. M-
+boundingrectangle(MBR)torepresentthespatialobjectsin
+treesearchperformancedependsonroughlythesamefactors
+thetree.TheMBRofasetofpointsisthesmallestrectangle
+asB-tree,andalsofacessimilarchallengesasB-tree.
+thatcontainsallthepoints.Theformulaforcomputingthe
+MBRofasetofpoints𝑃 is:
+3.1.3. SummaryandTrade-offsofNNSMethods
+[ ] [ ] Exact nearest neighbor search guarantees returning the
+𝑀𝐵𝑅(𝑃)= min𝑝 ,max𝑝 × min𝑝 ,max𝑝 (4)
+𝑥 𝑥 𝑦 𝑦 true nearest neighbor but faces performance challenges as
+𝑝∈𝑃 𝑝∈𝑃 𝑝∈𝑃 𝑝∈𝑃
+data size and dimensionality grow. Brute-force search is
+where𝑝 and𝑝 arethexandycoordinatesofpoint𝑝,and
+𝑥 𝑦 simple and accurate but its linear complexity limits it to
+×denotestheCartesianproduct.TheR-treealgorithmalso
+smalldatasets.
+usestwometricstomeasurethequalityofanodesplit:area
+Tree-based methods (KD-Tree, Ball-Tree, R-Tree, M-
+andoverlap.TheareaofanodeistheareaofitsMBR,and
+Tree)reducesearchspacethroughspatialpartitioning.KD-
+the overlap of two nodes is the area of the intersection of
+Tree works well in low dimensions but suffers from the
+theirMBRs.Theformulaforcomputingtheareaofanode
+curseofdimensionality.Ball-Treehandleshighdimensions
+Nis:
+betterathigherconstructioncost.R-Treesupportsrectangle
+queriesforspatialdatabutmayrequiremultiplesearchpaths
+( ) ( )
+area(𝑁)= 𝑁.𝑥 max −𝑁.𝑥 min × 𝑁 ⋅𝑦 max −𝑁 ⋅𝑦 min due to node overlap. M-Tree allows dynamic updates with
+(5) higher maintenance overhead. Exact methods are valuable
+forsmalldatasets,lowdimensions,orstrictaccuracyneeds.
+where𝑁.𝑥 ,𝑁.𝑥 ,𝑁.𝑦 ,and𝑁.𝑦 arethecoordi-
+min max min max In large-scale high-dimensional settings, they are often re-
+natesoftheMBRofnode𝑁.TheadvantageofR-treeisthat
+placedbyapproximatemethods.
+itcansupportspatialqueries,suchasrangequeriesornearest
+neighborqueries,ondatapointsthatrepresentgeographical 3.2. ApproximateNearestNeighborSearch
+coordinates,rectangles,polygons,orotherspatialobjects.R- 3.2.1. Hash-BasedApproach
+The core idea of the hash-based approach is to reduce
+treesearchperformancedependsonroughlythesamefactors
+search complexity by mapping high-dimensional data to
+asB-treeandalsofacessimilarchallengesasB-tree.
+lower-dimensionalhashcodeswithcarefullydesignedhash
+M-Tree [23]. It is a technique for finding the nearest
+functions while preserving similarity between data points.
+neighborsofagivenvectorinalargecollectionofvectors.
+AsshowninFigure3,eachhigh-dimensionalvectoristrans-
+ItworksbybuildinganM-tree,whichisatreedatastructure
+formedintoalow-dimensionalhashcode.Similarpointsare
+that partitions the data points into balls, i.e., hyperspheres
+mappedtothesameorneighboringcodes,sothesearchonly
+thatcontainasubsetofthepoints.EachnodeoftheM-tree
+needstoexamineasmallsubsetofcodes,greatlyimproving
+defines the smallest ball that contains all the points in its
+efficiency. Based on this idea, four representative methods
+subtree. The algorithm then searches for the closest ball to
+willbeintroduced:locality-sensitivehashing,spectralhash-
+thequerypointandthensearcheswithintheclosestballto
+ing,SphericalHashing,anddeephashing.
+findtheclosestpointtothequerypoint.
+Theideaistoreducethememoryfootprintandthesearch
+The M-tree algorithm uses the concept of covering ra-
+timebycomparingthebinarycodesinsteadoftheoriginal
+diustorepresentthespatialobjectsinthetree.Thecovering
+vectors[20].
+radius of a node is the maximum distance from the node’s
+routing object to any of its child objects. The formula for Local-Sensitive Hashing [25, 54]. It is a technique
+for finding the approximate nearest neighbors of a given
+computingthecoveringradiusofanode𝑁 is:
+vector in a large collection of vectors. It works by using a
+𝑟(𝑁)= max 𝑑(𝑁.𝑜𝑏𝑗𝑒𝑐𝑡,𝐶.𝑜𝑏𝑗𝑒𝑐𝑡) (6) hashfunctiontotransformthehigh-dimensionalvectorsinto
+𝐶∈𝑁.𝑐ℎ𝑖𝑙𝑑 compact binary codes, and then using a hash table to store
+where 𝑁.𝑜𝑏𝑗𝑒𝑐𝑡 is the routing object of node 𝑁, 𝑁.𝑐ℎ𝑖𝑙𝑑 andretrievethecodesbasedontheirsimilarityordistance.
+isthesetofchildnodesofnode𝑁,𝐶.𝑜𝑏𝑗𝑒𝑐𝑡istherouting InLSH,hashfunctionsaredesignedtopreservethelocality
+objectofchildnode𝐶,and𝑑 isthedistancefunction. ofvectors.Unliketraditionalhashfunctions,LSHincreases
+Ma et al.: PreprintsubmittedtoElsevier Page 7 of 25
+
+[[page:8]]
+Query Vector
+Hash
+Code 1
+Hash
+Hash Method Code 2
+Hash
+Vector Space Code N
+Survey on Vector Database
+Hash Code 1
+collectionofvectors.Itworksbyusingspectralgraphtheory
+Query to generate hash functions that minimize the quantization
+Vector Hash Code 2
+errorandmaximizethevarianceofthebinarycodes.Spec-
+tralhashingcanperformwellwhenthedatapointslieona
+H M a e s th h od low-dimensionalmanifoldembeddedinahigh-dimensional
+Hash Code N
+Vector space.
+Space
+The spectral hashing algorithm works by solving an
+Figure 3: The process of approximate nearest neighbor search optimizationproblemthatbalancestwoobjectives:(1)min-
+batechnsiqueed on hash approach
+Sh P Sa a hrd r a t ir i n t d i g o in n g ing M S u in lt g ip le le M M a a c c h h in in e e s s Prim R Ha a a n rsy g h e -a - b b pa a ps s er e od d aches imizingthevarianceofeachbinaryfunction,whichensures
+Caching CFaIFcOheEvictMioRnUAlgorithLFmUs Partitioned Cache thatthedatapointsareevenlydistributedamongthehyper-
+Replication Leader-Follower Multi-Leader cubes,and(2)maximizingthemutualinformationbetween
+the probability that similar items are mapped to the same
+different binary functions, which ensures that the binary
+code,thusincreasingcollisionsamongsimilarvectors.
+code is informative and discriminative. The optimization
+Atraceofalgorithmdescriptionandimplementationfor
+problemcanbeformulatedasfollows:
+locallysensitivehashingcanbeseenonthehomepage[10].
+The LSH algorithm works by using a family of hash
+𝑛
+functions that use random projections or other techniques min ∑ 𝑉𝑎𝑟 ( 𝑦 ) −𝜆𝐼 ( 𝑦 ,…,𝑦 ) (11)
+𝑖 1 𝑛
+whicharelocalitysensitive,meaningthatsimilarvectorsare 𝑦 1 ,…,𝑦 𝑛 𝑖=1
+morelikelytohavethesameorsimilarcodesthandissimilar
+vectors[29],whichsatisfythefollowingproperty: where𝑦 isthe𝑖-thbinaryfunction,𝑉𝑎𝑟 ( 𝑦 )isitsvariance,
+𝑖 𝑖
+𝐼 ( 𝑦 ,…,𝑦 ) is the mutual information between all the
+1 𝑛
+binaryfunctions,and𝜆isatrade-offparameter.
+Pr[ℎ(𝑝)=ℎ(𝑞)]=𝑓(𝑑(𝑝,𝑞)) (8) Theadvantageofspectralhashingisthatitcanperform
+wellwhenthedatapointslieonalow-dimensionalmanifold
+where ℎ is a hash function, 𝑝 and 𝑞 are two points, 𝑑 is embedded in a high-dimensional space. Spectral hashing
+a distance function, and 𝑓 is a similarity function. The searchperformancedependsonroughlythesamefactorsas
+similarityfunction𝑓 isamonotonicallydecreasingfunction
+local-sensitivehashing.Therearealsosomechallengesand
+ofthedistance,suchthatthecloserthepointsare,thehigher
+extensions of spectral hashing, such as dealing with noisy
+theprobabilityofcollision.
+and outlier data, choosing a good graph Laplacian for the
+Therearedifferentfamiliesofhashfunctionsfordiffer-
+datamanifold,orusingmultiplehashfunctionstoincrease
+entdistancefunctionsandsimilarityfunctions.Forexample,
+recall.
+one of the most common families of hash functions for
+Spherical Hashing. Spherical hashing is a binary en-
+Euclideandistanceandcosinesimilarityis:
+coding technique based on hyperspheres, designed for effi-
+⌊ ⌋ cientANNS.Unliketraditionalhyperplane-basedmethods,
+𝑎⋅𝑝+𝑏
+ℎ(𝑝)= (9) itpartitionsthedataspaceusinghyperspheres,whichdefine
+𝑤
+tighter and more compact regions through their centers
+where 𝑎 is a random vector, 𝑏 is a random scalar, and 𝑤 is andradii.Eachsphericalhashingfunction,asdescribedby
+a parameter that controls the size of the hash bucket. The Heo [50], is characterized by (𝑝 ∈ ℝ𝐷) and a distance
+𝑘
+similarityfunctionforthisfamilyofhashfunctionsis: threshold𝑡 ∈ℝ+,asdetailedbelow:
+𝑘
+{ −1 when𝑑 ( 𝑝 ,𝑥 ) >𝑡
+𝑓(𝑑(𝑝,𝑞))=1− 𝑑(𝑝,𝑞) , (10) ℎ 𝑘 (𝑥)= +1 when𝑑 ( 𝑝 𝑘 ,𝑥 )≤𝑡 𝑘 (12)
+𝜋𝑤 𝑘 𝑘
+where𝑑(𝑝,𝑞)istheEuclideandistancebetween𝑝and𝑞.The where 𝑑(⋅,⋅) is the Euclidean distance between two points
+advantageofLSHisthatitcanreducethememoryfootprint in 𝐷-dimensional real space; however, alternative distance
+andthesearchtimebycomparingthebinarycodesinstead metrics, such as the Lp-norms, could also be employed in
+of the original vectors and also adapt to dynamic data sets placeoftheEuclideandistance.Theoutputofeachspherical
+by inserting or deleting codes from the hash table without hashing function ℎ (𝑥) determines if the point 𝑥 resides
+𝑘
+affecting the existing codes [19]. The performance of LSH within the hypersphere that has 𝑝 as its center and 𝑡 as
+𝑘 𝑘
+dependsonseveralfactors,suchasthedimensionalityofthe its radius. To improve similarity measurement, spherical
+data, the number of hash functions, the number of bits per hashingintroducesthesphericalHammingdistance,which
+code, and the desired accuracy and recall. There are also accountsforthenumberofsharedhyperspheres.Thespher-
+somechallengesandextensionsofLSH,suchasdealingwith icalHammingdistanceisformulatedasfollows:
+noisyandoutlierdata,choosingagoodhashfunctionfamily,
+orusingmultiplehashtablestoincreaserecall.Itisimproved
+by[8,9,11]. |𝑏 ⊕𝑏 |
+SpectralHashing[111].Itisatechniqueforfindingthe 𝑑 shd ( 𝑏 𝑖 ,𝑏 𝑗 ) = | | 𝑖 𝑗| | (13)
+approximate nearest neighbors of a given vector in a large | | 𝑏 𝑖 ∧𝑏 𝑗 | |
+| |
+Ma et al.: PreprintsubmittedtoElsevier Page 8 of 25
+
+[[page:9]]
+Survey on Vector Database
+where |𝑏 ⊕𝑏 | represents the number of different bits Approximate Nearest Neighbors Oh Yeah [32]. It is
+| 𝑖 𝑗|
+(where|theXOR| operationresultsin1)betweentwobinary a technique that can perform fast and accurate similarity
+searchesandretrievalofhigh-dimensionalvectors.Itworks
+codes, |𝑏 ∧𝑏 | represents the number of common bits
+| 𝑖 𝑗| bybuildingaforestofbinarytrees,whereeachtreesplitsthe
+(where |the AN|D operation results in 1) between the two
+vectorspaceintotworegionsbasedonarandomhyperplane.
+binarycodes.
+Each vector is then assigned to a leaf node in each tree
+Comparedtohyperplane-basedhashingfunctions,spher-
+basedonwhichsideofthehyperplaneitfallson.Toquerya
+icalhashingcanmapmorespatiallycoherentdatapointsinto
+vector, Annoy traverses each tree from the root to the leaf
+binary codes. Moreover, in high-dimensional spaces, hy-
+node that contains the vector and collects all the vectors
+perspheresaremorepowerfulthanhyperplanesindefining
+in the same leaf nodes as candidates. Then, it computes
+closedregions,allowingmorepotentialnearestneighborsto
+the exact distance or similarity between the query vector
+becapturedwithinthebinarycoderegionofaquerypoint.
+andeachcandidateandreturnsthetop𝑘nearestneighbors.
+DeepHashing[70,75].Itisatechniqueforfindingthe
+Theformulaforfindingthemedianhyperplanebetweentwo
+approximate nearest neighbors of a given vector in a large
+points𝑝and𝑞is:
+collectionofvectors.Itworksbyusingadeepneuralnetwork
+to learn hash functions that transform high-dimensional
+vectors into compact binary codes, and then using a hash
+𝑤⋅𝑥+𝑏=0 (15)
+tabletostoreandretrievethecodesbasedontheirsimilarity
+ordistance[76].Thehashfunctionsaredesignedtopreserve where𝑤 = 𝑝−𝑞 isthenormalvectorofthehyperplane,𝑥
+the semantic information of the vectors, which means that isanypointonthehyperplane,and𝑏=−1(𝑤⋅𝑝+𝑤⋅𝑞)is
+similar vectors are more likely to have the same or similar thebiasterm.Theformulaforassigninga 2 pointxtoaleaf
+codesthandissimilarvectors[4]. nodeinatreeis:
+The deep hashing algorithm works by optimizing an
+objective function that balances two terms: (1) a recon- sign ( 𝑤 ⋅𝑥+𝑏 ) (16)
+𝑖 𝑖
+structionlossthatmeasuresthefidelityofthebinarycodes
+to the original data points and (2) a quantization loss that where𝑤 and𝑏 arethenormalvectorandbiastermofthe
+𝑖 𝑖
+measures the discrepancy between the binary codes and 𝑖-th split in the tree, and sign is a function that returns 1 if
+theircontinuousrelaxations. Theobjectivefunctioncanbe theargumentispositive,−1ifnegative,and0ifzero.The
+formulatedasfollows: point𝑥followstheleftorrightbranchofthetreedepending
+on the sign of this expression, until it reaches a leaf node.
+Theformulaforsearchingforthenearestneighborofaquery
+𝑁
+𝑊 mi ,𝐵 n ∑ ‖ ‖ 𝑥 𝑖 −𝑊𝑏 𝑖 ‖ ‖ 2 2 +𝜆‖ ‖ ‖ 𝑏 𝑖 −sgn ( 𝑏 𝑖 )‖ ‖ ‖ 2 2 (14) point𝑞intheforestis:
+𝑖=1
+min 𝑑(𝑞,𝑥) (17)
+where𝑥 isthe𝑖-thdatapoint,𝑏 isitscontinuousrelaxation, 𝑥∈𝐶(𝑞)
+sgn ( 𝑏 𝑖 )𝑖 isitsbinarycode,𝑊 i 𝑖 saweightmatrixthatmaps where𝐶(𝑞)isthesetofcandidatepointsobtainedbytravers-
+the binary codes to the data space, and 𝜆 is a trade-off ingeachtreeintheforestandretrievingallthepointsinthe
+parameter.
+leafnodethat𝑞belongsto,and𝑑isadistancefunction,such
+Theadvantageofdeephashingisthatitcanleveragethe
+asEuclideandistanceorcosinedistance.Thealgorithmuses
+representationlearningabilityofneuralnetworkstogenerate
+a priority queue to store the nodes to be visited, sorted by
+morediscriminativeandrobustcodesforcomplexdata,such
+theirdistanceto𝑞.Thealgorithmalsoprunesbranchesthat
+asimages,texts,oraudio.Theperformanceofdeephashing
+areunlikelytocontainthenearestneighborbyusingabound
+depends on several factors, such as the architecture of the
+onthedistancebetween𝑞andanypointinanode.
+neuralnetwork,thelossfunctionusedtotrainthenetwork,
+The advantage of Annoy is that it can use multiple
+andthenumberofbitspercode.
+random projection trees to index the data points, which
+can increase the recall and robustness of the search, also
+3.2.2. Tree-BasedApproach
+reduce the memory usage, and improve the speed of NNS
+The main idea of the tree-based approach is to build
+bycreatinglargeread-onlyfile-baseddatastructuresthatare
+hierarchical or recursively partitioned data structures, such
+mappedintomemorysothatmanyprocessescansharethe
+as trees, to break high-dimensional datasets into smaller
+same data. The performance of Annoy depends on several
+subsets.Thismethodimprovesqueryefficiencybyreducing
+factors, such as the dimensionality of the data, the number
+the number of points that need to be searched. Along this
+oftreesbuilt,thenumberofnearestcandidatestosearch,and
+line, three tree-based methods will be presented: approxi-
+thedistanceapproximationmethodused.
+matenearestneighborsohyeah,bestbinfirst,andk-means
+BestBinFirst[69,96].Itisatechniqueforfindingthe
+tree.
+approximate nearest neighbors of a given vector in a large
+Theideaistoreducethesearchspacebyfollowingthe
+collection of vectors. It works by building a kd-tree that
+branchesofthetreethataremostlikelytocontainthenearest
+partitionsthedatapointsintobinsandthensearchingforthe
+neighborsofthequerypoint.
+closestbintothequerypoint.Thealgorithmthensearches
+Ma et al.: PreprintsubmittedtoElsevier Page 9 of 25
+
+[[page:10]]
+starting node
+nearest vector
+query vector q
+Survey on Vector Database
+within the closest bin to find the closest point to the query
+Nearest Starting
+point.Thebestbinfirstalgorithmstillfollows(1) (2).The Vector Node
+advantageofbestbinfirstisthatitcanreducethesearchtime
+andimprovetheaccuracyofNNS,byfocusingonthemost
+promisingbinsandavoidingunnecessarycomparisonswith
+distantpoints.Theperformanceofthebestbinfirstdepends
+onseveralfactors,suchasthedimensionalityofthedata,the Query
+numberofbinspernode,thenumberofnearestcandidates Vector
+tosearch,andthedistanceapproximationmethodused.
+Figure 4: The process of performing nearest neighbor search
+K-meansTree[88].Itisatechniqueforclusteringhigh- on a small-world network.
+dimensionaldatapointsintoahierarchicalstructure,where
+eachnoderepresentsaclusterofpoints.Itworksbyapplying
+almost any node can be reached from another in just a few
+a k-means clustering algorithm to the data points at each
+steps.Thismeanstheaveragepathlengthbetweenanytwo
+levelofthetreeandthencreatingchildnodesforeachcluster.
+nodes is much shorter than the total number of nodes. The
+Theprocessisrepeatedrecursivelyuntiladesireddepthor
+"six degrees of separation" theory in sociology [45] is a
+sizeofthetreeisreached.Theformulaforassigningapoint
+concretemanifestationofasmall-worldnetwork.
+𝑥toaclusterusingthek-meansalgorithmis:
+Given a query vector 𝑞 and the task of finding the 𝑘
+closestvectorsfromaset𝑂,thegraph-basedapproachuses
+argmin‖ ‖ 𝑥−𝑐 𝑖 ‖ ‖ 2 2 (18) a graph 𝐺(𝑉,𝐸) to represent these objects, where each
+𝑖=1,…,𝑘 object𝑜 correspondstoanode𝑣.Thesmall-worldnetwork
+𝑖 𝑖
+where argmin is a function that returns the argument that graph is constructed by sequentially adding all nodes. As
+minimizes the expression and ‖⋅‖2 denotes the Euclidean shown in Figure 4, when a new node is added, a list of
+norm.Theformulaforassigningapoint𝑥toaleafnodein neighboring nodes is generated using a greedy algorithm,
+ak-meanstreeis: and bidirectional connections are established between the
+new node and all nodes in the list. Once the graph is con-
+argmin‖ 𝑥−𝑁.𝑐𝑒𝑛𝑡𝑒𝑟 ‖ 2 2 (19) structed,searchingfor𝑞issimilartotheprocessofaddinga
+𝑁∈𝐿(𝑥) newnode.Thesearchstartsfromarandomlyselectednode
+(withdifferentsmall-worldvariantspossiblyusingdifferent
+where 𝐿(𝑥) is the set of leaf nodes that 𝑥 belongs to, and
+selectionstrategies).Fromthelistofneighborsofthecurrent
+𝑁.𝑐𝑒𝑛𝑡𝑒𝑟 is the cluster center of node 𝑁. The point 𝑥
+belongstoaleafnodeifitbelongstoallitsancestornodesin
+node,thenodemostsimilarto𝑞isidentified.Ifsuchanode
+isfound,itbecomesthenextnode,andthesearchprocessis
+thetree.Theformulaforsearchingforthenearestneighbor
+ofaquerypoint𝑞inthek-meanstreeis:
+repeated.Ifanodehasahighersimilarityto𝑞thanallofits
+neighbors,thesearchstops,andthatnodeisconsideredthe
+𝑥 m ∈𝐶 in (𝑞) ‖ 𝑞−𝑥 ‖ 2 2 (20) o in n t e ro m du o c st e s d i : m n i a la v r ig to ab 𝑞 l . e T s w m o a t l y l p w e o s r o ld fg ( r N a S ph W -b ) a a s n e d dm hi e e t r h a o rc d h s i a c r a e l
+navigablesmallworld(HNSW).
+where𝐶(𝑞)isthesetofcandidatepointsobtainedbytravers-
+Navigable Small World It is a technique that uses a
+ingeachbranchofthetreeandretrievingallthepointsinthe
+graph structure to store and retrieve high-dimensional vec-
+leaf nodes that 𝑞 belongs to. The algorithm uses a priority
+tors based on their similarity or distance [92]. The NSW
+queuetostorethenodestobevisited,sortedbytheirdistance
+algorithm builds a graph by connecting each vector to its
+to 𝑞. The algorithm also prunes branches that are unlikely
+nearestneighbors,aswellassomerandomlong-rangelinks
+to contain the nearest neighbor by using a bound on the
+that span different regions of the vector space. The idea is
+distancebetween𝑞andanypointinanode.
+that these long-range links create shortcuts that allow for
+The advantage of K-means tree is that it can perform
+fasterandmoreefficienttraversalofthegraph,similartohow
+fast and accurate similarity searches and retrieval of data
+socialnetworkshavesmallworldproperties[117].
+points based on their cluster membership by following the
+The NSW algorithm works by using a greedy heuristic
+branchesofthetreethataremostlikelytocontainthenearest
+to add edges to the graph[78]. The algorithm starts with
+neighborsofthequerypoint.K-meanstreecanalsosupport
+an empty graph and adds one point at a time. For each
+dynamic operations, such as inserting and deleting points,
+point, the algorithm finds its nearest neighbor in the graph
+byupdatingthetreestructureaccordingly.Theperformance
+using a random walk and connects it with an edge. Then,
+of K-means tree depends on several factors, such as the
+the algorithm adds more edges by connecting the point to
+dimensionalityofthedata,thenumberofclusterspernode,
+other points that are closer than its current neighbors. The
+andthedistancemetricused.
+algorithm repeats this process until all points are added to
+thegraph.Theformulaforfindingthenearestneighborofa
+3.2.3. Graph-BasedApproach
+pointpinthegraphusingarandomwalkis:
+The core concept of the graph-based approach is the
+small-world network. A small-world network is a complex
+network where most nodes are not directly connected, but
+Ma et al.: PreprintsubmittedtoElsevier Page 10 of 25
+
+[[page:11]]
+Survey on Vector Database
+where𝑀 istheparameterthatcontrolsthemaximumnum-
+berofneighborsforeachpointineachlayer.Thealgorithm
+argmin𝑑(𝑝,𝑞) (21) assigns 𝑝 to layer 𝑙 with probability Pr[𝑝 ∈ 𝑙], and stops
+𝑞∈𝑁(𝑝) whenitfailstoassign𝑝toanyhigherlayer.Theformulafor
+whereN(p)isthesetofneighborsofpinthegraph,andd searchingforthenearestneighborofaquerypointqinthe
+isadistancefunction,suchasEuclideandistanceorcosine hierarchicalgraphis:
+distance. The algorithm starts from a random point in the
+graphandmovestoitsnearestneighboruntilitcannotfinda min 𝑑(𝑞,𝑝) (24)
+𝑝∈𝐶(𝑞)
+closerpoint.Theformulaforaddingmoreedgestothegraph
+usingagreedyheuristicis: where𝐶(𝑞)isthesetofcandidatepointsobtainedbytravers-
+ingeachlayerofthegraphfromtoptobottomandretrieving
+all the points that are closer than the current best distance.
+∀𝑞 ∈𝑁(𝑝),∀𝑟∈𝑁(𝑞),if𝑑(𝑝,𝑟)<𝑑(𝑝,𝑞), The algorithm uses a priority queue to store the nodes to
+(22)
+thenaddedge(𝑝,𝑟) bevisited,sortedbytheirdistanceto𝑞.Thealgorithmalso
+prunes branches that are unlikely to contain the nearest
+where 𝑁(𝑝) and 𝑁(𝑞) are the sets of neighbors of 𝑝 and neighbor by using a bound on the distance between 𝑞 and
+𝑞 in the graph, respectively, and 𝑑 is a distance function. anypointinanode.
+Thealgorithmconnects𝑝toanypointthatiscloserthanits The advantage of HNSW is that it can achieve better
+currentneighbors. performance than other methods of ANNS, such as tree-
+TheadvantageoftheNSWalgorithmisthatitcanhandle basedorhash-basedtechniques.Forexample,itcanhandle
+arbitrarydistancemetrics,itcanadapttodynamicdatasets, arbitrary distance metrics, it can adapt to dynamic data
+anditcanachievehighaccuracyandrecallwithlowmemory sets, and it can achieve high accuracy and recall with low
+consumption.TheNSWalgorithmalsousesagreedyrouting memoryconsumption.TheperformanceofHNSWdepends
+strategy, which means that it always moves to the node onseveralfactors,suchasthedimensionalityofthevectors,
+that is closest to the query vector until it reaches a local thenumberoflayers,thenumberofneighborspernode,and
+minimumorapredefinednumberofhops.Theperformance thenumberofhopsperquery.
+of the NSW algorithm depends on several factors, such as Beyond the greedy traversal inherent to graph-based
+the dimensionalityof the vectors,the number ofneighbors methods,furtheraccelerationcanbeachievedthroughgeo-
+pernode,thenumberoflong-rangelinkspernode,andthe metricpruningtechniquesthatleveragemetricspaceproper-
+numberofhopsperquery. ties.Triangleinequalities,forexample,cansafelyeliminate
+HierachicalNavigableSmallWorld[77].Itisastate- nodes unlikely to be closer than the current best candidate
+of-the-art technique for finding the approximate nearest during graph search, reducing distance computations. This
+neighborsofagivenvectorinalargecollectionofvectors. principle extends beyond graphs to other index structures.
+It works by building a graph structure that connects the Recent work demonstrates this by applying fine-grained
+vectorsbasedontheirsimilarityordistanceandthenusing triangle inequality pruning within cluster-based indexes,
+a greedy search strategy to traverse the graph and find the achieving over 99.4% pruning ratio[115]. Such geometric
+mostsimilarvectors.TheHNSWalgorithmstillfollows(21) pruning strategies are orthogonal to the underlying index
+and (22). The HNSW algorithm also builds a hierarchical structure—whether graph, tree, or cluster-based—and can
+structure of the graph by assigning each point to different beintegratedforcompoundedperformancegains.
+layerswithdifferentprobabilities.Thehigherlayerscontain
+fewer points and edges, while the lower layers contain 3.2.4. Quantization-BasedApproach
+morepointsandedges.Whenasearchquerycomesin,the The core idea of quantization is to map points in a
+HNSW algorithm finds the closest matching data points in high-dimensionalspacetoalow-precisionrepresentationin
+the highest layer. It then proceeds layer by layer, moving a finite set. This reduces the number of bits required for
+downwards and finding the nearest data points in each storage, lowering storage demands. By using these quan-
+subsequentlayerbasedonthosefromthelayerabove.These tized representations during queries, the distance between
+points are considered the nearest neighbors. The algorithm theoriginalpointscanbequicklyestimated.Specifically,a
+continues this process in the lower layers, updating the list vectorquantizermapsk-dimensionalvectorsfromthevector
+ofnearestneighborsateachstep.Onceitreachesthebottom space𝑅𝑘 toafinitesetofvectors𝑆 = {𝑠 ∶ 𝑖 = 1,…,𝑛}.
+𝑖
+layer, the HNSW algorithm returns the data points that are Each vector 𝑠 is called a code vector or codeword, or
+𝑖
+closesttothesearchquery.Thealgorithmusesaparameter centroids. The collection of all codewords is referred to as
+M to control the maximum number of neighbors for each acodebook.Associatedwitheachcodeword,𝑠,isanearest
+𝑖
+pointineachlayer.Theformulaforassigningapoint𝑝toa neighborregioncalledVoronoiregion,anditisdefinedby:
+layer𝑙usingarandomprobabilityis:
+𝑉 𝑖 =
+{
+𝑥∈𝑅𝑘 ∶‖ ‖ 𝑥−𝑦 𝑖 ‖ ‖ ≤‖ ‖ ‖ 𝑥−𝑦 𝑗 ‖ ‖ ‖ , forall𝑗 ≠𝑖
+}
+. The
+setofVoronoiregionpartitionstheentirespace𝑅𝑘suchthat:
+{ 1 if𝑙=0 ⋃𝑁 𝑉 =𝑅𝑘,⋂𝑁 𝑉 =𝜙forall𝑖≠𝑗.Figure5showsthe
+Pr[𝑝∈𝑙]= (23) 𝑖=1 𝑖 𝑖=1 𝑖
+1 if𝑙>0 codewordsinatwo-dimensionalspace,whereinputvectors
+𝑀
+Ma et al.: PreprintsubmittedtoElsevier Page 11 of 25
+
+[[page:12]]
+Survey on Vector Database
+are marked with blue stars, codewords are marked with InvertedFileIndex.InvertedFileIndexisatechnique
+orange circles, and the Voronoi regions are separated with designed to enhance search efficiency by narrowing the
+boundarylines. search area through the use of neighbor partitions or clus-
+Avectorquantizerconsistsoftwoprimarycomponents: ters[73].Itusesclustering(e.g.,K-means)topartitionhigh-
+anencoderandadecoder,asshowninFigure6.Theencoder dimensional vectors into multiple regions (Voronoi Cells)
+takesaninputvectorandoutputstheindexofthecodeword and records the vectors within each region through an in-
+that minimizes the distortion. This minimal distortion is vertedindex.Duringaquery,thesearchisrestrictedtoafew
+found by calculating the distance between the input vector regionsclosesttothequeryvector,significantlyreducingthe
+andeachcodewordinthecodebook,typicallyusingmetrics searchspaceandimprovingretrievalefficiency.IVFisoften
+like Euclidean or Hamming distance. Once the codeword combined with other techniques, such as Product Quanti-
+withthesmallestdistanceisidentified,itsindexistransmit- zation (PQ), to further optimize storage and computation,
+ted to the decoder. At the receiver, the decoder then maps making it widely used in image retrieval, recommendation
+thisindexbacktothecorrespondingcodeword.Generating systems, and VDBs. Its main advantages are fast search
+aneffectivecodebookinvolvesselectingcodewordsthatbest speed and high efficiency, though its performance in high-
+representagivensetofinputvectors,alongwithdetermining dimensionalspacesmaybelimitedbyclusteringqualityand
+theappropriatenumberofcodewords.Designinganoptimal thecomplexityofdynamicupdates.
+codebookisanNP-hardproblem,implyingthatfindingthe ProductQuantization.Itisatechniqueforcompressing
+absolute best set of codewords through exhaustive search high-dimensional vectors into smaller and more efficient
+becomesimpracticallycomplexasthenumberofcodewords representations [56, 80]. It works by dividing a vector into
+increases.Asaresult,heuristicmethods,suchastheLinde- severalsub-vectors,andthenapplyingaclusteringalgorithm
+Buzo-Gray(LBG)algorithm,whichisconceptuallysimilar (such as k-means) to each sub-vector to assign it to one of
+to the K-means clustering algorithm, are commonly em- a finite number of possible values (called centroids). The
+ployed.TocreateacodebookusingtheLBGalgorithm,one result is a compact code that consists of the indices of the
+first specifies the number of codewords, 𝑁, which defines centroidsforeachsub-vector.
+thesizeofthecodebook.Initially,𝑁codewordsareselected ThePQalgorithmworksbyusingavectorquantization
+at random, often from the set of input vectors themselves. techniquetomapeachsubvectortoitsnearestcentroidina
+Each input vector is then associated with the nearest code- predefinedcodebook.Thealgorithmfirstsplitseachvector
+word based on the Euclidean distance. After all vectors into 𝑚 equal-sized subvectors, where 𝑚 is a parameter that
+have been assigned to their respective clusters, a new set controlsthelengthofthecode.Then,foreachsubvector,the
+ofcodewordsisgeneratedbycomputingtheaverageofthe algorithm learns 𝑘 centroids using the k-means algorithm,
+vectorswithineachcluster.Thisprocessinvolvessumming where𝑘isaparameterthatcontrolsthesizeofthecodebook.
+the components of the vectors in each cluster and dividing Finally, the algorithm assigns each subvector to its nearest
+bythetotalnumberofvectorsinthatcluster.Thisiterative centroid and concatenates the centroid indices to form the
+procedure refines the codebook until a satisfactory level of code.Theformulaforsplittingavector𝑥into𝑚subvectors
+representation is achieved. The formula for calculating the is:
+average of the components within each cluster is: 𝑦 =
+𝑖
+𝑚 1 ∑𝑚 𝑗=1 𝑥 𝑖𝑗 , where 𝑖 is the component of each vector and 𝑥= ( 𝑥 ,𝑥 ,…,𝑥 ) (25)
+𝑚 is the number of vectors in the cluster. There are also 1 2 𝑚
+many other methods for designing the codebook, methods where𝑥 isthe𝑖-thsubvectorof𝑥,andhasdimension𝑑∕𝑚,
+𝑖
+such as Generative Pre-trained Transformer Vector quan- where 𝑑 is the dimension of 𝑥. The formula for finding
+tization (GPTVQ) [13], Vector PostTraining Quantization the centroids of a set of subvectors 𝑃 using the k-means
+(VPTQ)[74],deepnetworkarchitectureforvectorquantiza- algorithmis:
+tion (DeepVQ) [62], etc. Based on the core idea described
+above, six quantization-based methods will be presented
+1 ∑
+here,namelyinvertedfileindex(IVF),productquantization 𝑐 = 𝑥 (26)
+𝑖
+(PQ) [56, 80], optimized product quantization (OPQ) [40, | | 𝑆 𝑖 | |𝑥∈𝑆 𝑖
+67],onlineproductquantization[3],scalablenearestneigh-
+where 𝑐 is the 𝑖-th centroid, 𝑆 is the set of subvectors
+bor (ScaNN) [47], and inverted file product quantization 𝑖 𝑖
+(IVF_PQ) [46, 105]. Product quantization can reduce the
+assignedtothei-thcluster,and |⋅| denotesthecardinalityof
+aset.Theformulaforassigningasubvector𝑥toacentroid
+memoryfootprintandsearchtimeofANNsearchbycom-
+usingthek-meansalgorithmis:
+paring codes instead of the original vectors [108]. More
+recently, RaBitQ [37], a randomized quantization method argmin ‖𝑥−𝑐‖ 2 (27)
+that provides strong theoretical guarantees on distance es-
+𝑖=1,…,𝑘‖ 𝑖‖2
+timationerrorwhilemaintainingpracticalefficiency.These where argmin is a function that returns the argument that
+approaches are fundamental to modern high-dimensional minimizes the expression and ‖⋅‖2 denotes the Euclidean
+similaritysearch. norm.Theformulaforencodingavector𝑥usingPQis:
+𝑐(𝑥)= ( 𝑞 ( 𝑥 ) ,𝑞 ( 𝑥 ) ,…,𝑞 ( 𝑥 )) (28)
+1 1 2 2 𝑚 𝑚
+Ma et al.: PreprintsubmittedtoElsevier Page 12 of 25
+
+[[page:13]]
+Survey on Vector Database
+where𝑥 isthe𝑖-thsubvectorof𝑥,and𝑞 isthequantization
+𝑖 𝑖
+f
+n
+u
+e
+n
+a
+c
+re
+ti
+s
+o
+t
+n
+ce
+fo
+n
+r
+tr
+t
+o
+h
+i
+e
+d
+𝑖-
+in
+th
+t
+s
+h
+u
+e
+b
+c
+v
+o
+e
+d
+c
+e
+to
+b
+r
+o
+,
+o
+w
+k
+h
+.
+ichreturnstheindexofthe
+𝑥= ( 𝑥
+1
+,𝑥
+2
+,…,𝑥
+𝑚
+) (32)
+Theadvantageofproductquantizationisthatitissimple where𝑥 isthe𝑖-thsubvectorof𝑥,andhasdimension𝑑∕𝑚,
+𝑖
+andeasytoimplement,asitonlyrequiresastandardcluster- where𝑑 isthedimensionof𝑥.Theformulaforinitializing
+ingalgorithmandasimpledistanceapproximationmethod. thecentroidsofasetofsubvectors𝑃 usingthek-means++
+Theperformanceofproductquantizationdependsonseveral algorithmis:
+factors, such as the dimensionality of the data, the number
+ofsub-vectors,thenumberofcentroidspersub-vector,and 𝑐 = randomlychooseapointfrom𝑃 (33)
+𝑖
+thedistanceapproximationmethodused.
+where𝑐 isthe𝑖-thcentroid,withprobabilityproportionalto
+Optimized Product Quantization [40]. It is a vari- 𝐷(𝑥)2,𝐷 𝑖 (𝑥)isthedistancebetweenpoint𝑥anditsclosest
+ation of product quantization (PQ), which is a technique centroidamong{
+𝑐 ,…,𝑐
+}.Theformulaforassigninga
+for compressing high-dimensional vectors into smaller and 1 𝑖−1
+subvector𝑥toacentroidusingPQis:
+more efficient representations. OPQ works by optimizing
+the space decomposition and the codebooks to minimize argmin ‖𝑥−𝑐‖ 2 (34)
+𝑖=1,…,𝑘‖ 𝑖‖2
+quantizationdistortions.OPQcanimprovetheperformance
+ofPQbyreducingthelossofinformationandincreasingthe where argmin is a function that returns the argument that
+discriminability of the codes [67]. The advantage of OPQ minimizes the expression and ‖⋅‖2 denotes the Euclidean
+isthatitcanachievehigheraccuracyandrecallthanPQ,as
+norm.Theformulaforencodingavector𝑥usingPQis:
+itcanbetterpreservethesimilarityordistancebetweenthe 𝑐(𝑥)= ( 𝑞 ( 𝑥 ) ,𝑞 ( 𝑥 ) ,…,𝑞 ( 𝑥 )) (35)
+1 1 2 2 𝑚 𝑚
+originalvectors.Theformulaforapplyingarandomrotation
+tothedatais:
+where𝑥 isthe𝑖-thsubvectorof𝑥,and𝑞 isthequantization
+𝑖 𝑖
+functionforthe𝑖-thsubvector,whichreturnstheindexofthe
+𝑥′ =𝑅𝑥 (29) nearestcentroidinthecodebook.
+The O-PQ algorithm also updates the codebooks and
+where 𝑥 is the original vector, 𝑥′ is the rotated vector, and codesforeachsubvectorusinganonlinelearningtechnique.
+𝑅 is a random orthogonal matrix. The formula for finding The algorithm uses two parameters: 𝛼, which controls the
+the rotation matrix for a subvector using an optimization learning rate, and 𝛽, which controls the forgetting rate.
+techniqueis: Thealgorithmupdatesthecodebooksandcodesasfollows:
+For each new point 𝑥, assign it to its nearest centroid in
+min ∑ ‖ ‖ 𝑥−𝑅 𝑖 𝑐 𝑖 ( 𝑅 𝑖 𝑥 )‖ ‖ 2 (30) each subvector using PQ. For each subvector 𝑥 𝑖 , update its
+𝑅 𝑖 𝑥∈𝑃 𝑖 ‖ ‖2 centroid𝑐 𝑞 𝑖 (𝑥 𝑖 ) as:
+where𝑃
+𝑖
+isthesetofsubvectorsassignedtothe𝑖-thcluster, 𝑐
+𝑞 𝑖 (𝑥 𝑖 )
+=(1−𝛼)𝑐
+𝑞 𝑖 (𝑥 𝑖 )
++𝛼𝑥
+𝑖
+(36)
+𝑅 is the rotation matrix for the 𝑖-th cluster, and 𝑐 is the
+qu 𝑖 antization function for the 𝑖-th cluster, which retu 𝑖 rns the Foreachsubvector𝑥 𝑖 ,updateitscode𝑞 𝑖 ( 𝑥 𝑖 )as:
+nearestcentroidinthecodebook.Theformulaforencoding
+avector𝑥usingOPQis: 𝑞 ( 𝑥 ) =arg min ‖(1−𝛽)𝑥 +𝛽𝑥 −(1−𝛽)𝑐 +𝛽𝑐 ‖ 2
+𝑖 𝑖 ‖ 𝑖 𝑖 𝑗 𝑗‖
+𝑗=1,…,𝑘‖ ‖2
+𝑐(𝑥)= ( 𝑞 ( 𝑅 𝑥 ) ,𝑞 ( 𝑅 𝑥 ) ,…,𝑞 ( 𝑅 𝑥 )) (31) (37)
+1 1 1 2 2 2 𝑚 𝑚 𝑚
+where 𝑥 and 𝑐 are the mean vectors of all points and
+where𝑥 isthe𝑖-thsubvectorof𝑥,𝑅 istherotationmatrix 𝑖 𝑗
+𝑖 𝑖 centroidsinsubvector𝑖,respectively.
+for the 𝑖 -th subvector, and 𝑞 is the quantization function
+𝑖 TheadvantageofO-PQisthatitcandealwithchanging
+forthe𝑖-thsubvector,whichreturnstheindexofthenearest
+data distributions and new data points, as it can update
+centroidinthecodebook.
+the codebooks and the codes in real time. O-PQ search
+The performance of OPQ depends on several factors,
+performance depends on roughly the same factors as OPQ
+such as the dimensionality of the data, the number of sub-
+andalsofacessimilarchallengesasOPQ.
+vectors, the number of centroids per sub-vector, and the
+ScalableNearestNeighbor.Itisatechniqueforefficient
+distanceapproximationmethodused.
+vectorsimilaritysearchatscale[47,99].ScaNNoptimizes
+Online Product Quantization [114]. It is a variation
+Maximum Inner Product Search (MIPS) through search
+ofproductquantization(PQ),whichisatechniqueforcom-
+spacepruningandquantization.TraditionalMIPSschemes
+pressing high-dimensional vectors into smaller and more
+aimtominimizetheaveragedistancebetweeneachvector𝑥
+efficient representations. Online product quantization (O-
+anditscentroids𝑥̃,thatis,tominimizequantizationdistor-
+PQ)worksbyadaptingtodynamicdatasetsbyupdatingthe
+tions.Theformulafortypicallymeasuringthequantization
+quantizationcodebookandthecodesonline.O-PQcanhan-
+distortionis:
+dledatastreamsandincrementaldatasetswithoutrequiring
+offline retraining or reindexing. The formula for splitting a 𝑁
+vector𝑥into𝑚subvectorsis: 𝐷=
+𝑁
+1 ∑ ‖
+‖
+𝑥
+𝑖
+−𝑥̃
+𝑖
+‖
+‖
+2
+2
+(38)
+𝑖=1
+Ma et al.: PreprintsubmittedtoElsevier Page 13 of 25
+
+[[page:14]]
+Survey on Vector Database
+where 𝑁 is the total number of vectors, 𝑥 is the original TheIVF_PQalgorithmnaturallyresultsintwodifferent
+𝑖
+vector,𝑥̃ isquantizedcentroid,and ‖⋅‖2 denotesEuclidean approacheswhenusingthePQalgorithm:thefirstinvolves
+norm. performingK-meansclusteringwiththeIVFalgorithm,fol-
+While the ScaNN algorithm argues that optimizing the lowedbyapplyingalocalPQalgorithmfordimensionality
+averagedistanceisnotequivalenttooptimizingtheaccuracy reduction within each cluster; the second also starts with
+ofnearest-neighborsearches.Thehypothesisitputsforward the IVF algorithm to divide all data points into several
+isthattheobjectiveofmaximizingtheinnerproductbetween clusters but applies a globally unified PQ algorithm for
+two points is not entirely consistent with the objective of dimensionalityreductionwithineachcluster.
+minimizingtheaveragedistancebetweentwopoints. RandomizedBitQuantization[37].Itisarecentlypro-
+ScaNN takes into account the distribution characteris- posed quantization method that addresses a key limitation
+tics of the data in different directions; ellipsoidal or other of existing approaches: the lack of theoretical guarantees
+shapedregionsareusedinsteadofsphericalregionsaround ondistanceestimationerror,whichcanleadtocatastrophic
+the centroids to better fit the local structure of the data. failures on some real-world datasets. It compresses D-
+Building on this perspective, the anisotropic loss function dimensional vectors into D-bit strings while providing a
+canfurtherenhancetheadaptabilityofvectorquantizationto sharptheoreticalboundontheapproximationerror,ensuring
+dataanisotropy.Byexplicitlyseparatingquantizationerrors thatdistanceestimatesareprovablyclosetotruedistances.
+into parallel and orthogonal components, the anisotropic Beyonditstheoreticalguarantees,RaBitQachievesexcellent
+lossfunctionassignsdistinctscalingparametersℎ‖ andℎ⟂ empirical performance through efficient implementations
+𝑖 𝑖
+to these components, respectively. This allows for more leveraging bitwise operations or SIMD-based acceleration.
+fine-grainedcontroloverthequantizationprocess,ensuring Extensive experiments show that RaBitQ outperforms PQ
+that the errors are distributed in alignment with the data’s and its variants in accuracy-efficiency trade-off by a clear
+geometriccharacteristics. margin,withempiricalbehaviorcloselyaligningwiththeo-
+The anisotropic vector quantization algorithm shares reticalanalysis.Thiscombinationofrigorousguaranteesand
+similaritieswiththeLloydalgorithm,iterativelyrefiningthe practicalefficiencymakesRaBitQparticularlyvaluablefor
+codebookanddatapartitions.Thekeydistinctionliesinthe applicationsrequiringbothreliabilityandhighperformance.
+updateruleforthecodebookcentroids:
+3.2.5. SummaryandTrade-offsofANNSMethods
+Four mainstream approximate nearest neighbor search
+∑ ℎ‖⋅𝐱‖+ℎ⟂⋅𝐱⟂ methodsexist:hashing-based,tree-based,graph-based,and
+𝐜 = 𝑖∈𝑋 𝑗 𝑖 𝑖 𝑖 𝑖 (39) quantization-based approaches. Each offers different trade-
+𝑗 ( )
+∑ ℎ‖+ℎ⟂ offs in accuracy, speed, memory, and dynamic update sup-
+𝑖∈𝑋 𝑗 𝑖 𝑖
+port.
+where𝑋 isthesetofdatapointsassignedtothecodeword Hashing-based methods (e.g., LSH) suit static high-
+𝑗
+𝐜 . This update formula takes into account the directional dimensionalsparsedatabutoftenhavelimitedrecall.Tree-
+𝑗
+scaling,ensuringthattheresultingcodewordsareoptimally basedmethods(e.g.,KD-Tree)performwellinlowdimen-
+positionedinaccordancewiththeanisotropicpropertiesof sions but degrade in high dimensions due to the curse of
+thedata. dimensionality.Graph-basedmethods(e.g.,HNSW)balance
+Byintegratingthisanisotropiclossframework,thequan- accuracyandspeedeffectively,makingthempopularinpro-
+tizationprocessmovesbeyondsphericalsymmetryandbet- duction,thoughtheyrequirehighmemoryandcarefulmain-
+teraccommodatesellipsoidalorirregularlyshapeddistribu- tenance. Quantization-based methods (e.g., PQ) compress
+tionsinthedata.TheperformanceofScaNNdependsonsev- vectors to reduce storage, ideal for memory-constrained
+eralfactors,suchastheanisotropyofthedatadistribution, settings,butmaysacrificeaccuracy.
+the choice of quantization methods like vector or product Choosing the right method requires balancing data di-
+quantization,thesizeandqualityofthecodebooks,andthe mensionality, query patterns, hardware resources, and up-
+efficiencyofthepartitioningandscoringprocesses. datefrequency.
+InvertedFileProductquantization.Itisawidelyused
+techniqueforapproximatenearestneighbor(ANN)searchin
+high-dimensionalvectorspaces[46,105].Thisalgorithmis
+acombinationoftheInvertedFileIndexing(IVF)andProd-
+uctQuantization(PQ)algorithms.IVF_PQfirstusestheIVF
+algorithm to divide or partition the data into clusters and
+usestheparameter𝑛𝑝𝑟𝑜𝑏𝑒tocontrolthenumberofclusters.
+The higher the 𝑛𝑝𝑟𝑜𝑏𝑒, the better the search results, but it
+alsoincreasesthetimerequired.Itthenidentifiesthetop-N
+clustersclosesttothequeryvectorandperformsthesearch
+withintheseNclustersusingtheProductQuantization(PQ)
+algorithm.
+Ma et al.: PreprintsubmittedtoElsevier Page 14 of 25
+
+[[page:15]]
+Survey on Vector Database
+Vectors
+𝑠𝑠12
+𝑠𝑠5
+𝑠𝑠9 𝑠𝑠6
+𝑠𝑠10 𝑠𝑠11 Codeword
+𝑠𝑠8
+Codewords
+𝑠𝑠11
+𝑠𝑠7
+𝑠𝑠7
+𝑠𝑠10
+𝑠𝑠12
+𝑠𝑠4
+Vector
+𝑠𝑠3 𝑠𝑠9
+𝑠𝑠6 𝑠𝑠8 𝑠𝑠13
+𝑠𝑠1 𝑠𝑠2 𝑠𝑠4
+𝑠𝑠5
+V
+R
+o
+e
+r
+g
+o
+i
+n
+o
+o
+n
+i 𝑠𝑠1 𝑠𝑠3
+Voronoi
+Region
+𝑠𝑠2
+Figure 5: Codewords and Voronoi Regions in a Two-
+Dimensional Space
+r Encoder Hash Code N
+Input Vector Output Vector
+Codebook Indices
+Search
+Engine
+Figure 6: Vector Quantization Process with Encoder and
+Decoder Operations
+Ma et al.: PreprintsubmittedtoElsevier Page 15 of 25
+
+[[page:16]]
+Survey on Vector Database
+Table 1
+FEATURES OF VECTOR DATABASES
+Maximum
+Database QueryTypes IndexingMethods NSD Scalability Replication Sharding Partitioning
+Dimension
+Brute Tree Hash Graph Quantization Horizontal Vertical
+ANNS NNS
+Force Based Based Based Based Scaling Scaling
+✓ ✓ ✓ ✓ ✓ ✓ ✓ ✓ ✓ ✓ ✓ ✓
+PgVector 7 16,000
+✓ ✓ ✓ × × ✓ ✓ ✓ ✓ ✓ ✓ ✓
+QdrantCloud 4 65,535
+✓ ✓ ✓ × × ✓ × ✓ × ✓ ✓ ✓
+WeaviateCloud 6 65,535
+✓ ✓ ✓ × ✓ ✓ ✓ × ✓ ✓ ✓ ✓
+ZillizCloud 4 32,768
+✓ ✓ ✓ × × ✓ ✓ ✓ × ✓ ✓ ✓
+Milvus 6 32,768
+✓ ✓ ✓ × × ✓ × ✓ × ✓ ✓ ✓
+ElasticCloud 4 N/A
+✓ ✓ ✓ ✓ ✓ ✓ ✓
+Pinecone N/A N/A N/A N/A N/A 3 N/A
+Abbreviations:NSD NumberofSupportedDistanceFunctions,N/A Unknown,✓ Support,× NotSupport
+ThedatabaseinformationlistedaboveisbasedondatauptoDecember1,2024.
+Table 2
+4. VectorDatabaseComparison
+Overview of Supported Distance Functions in VDBs
+In the realm of VDBs, a variety of storage and search PgVector QdrantCloud WeaviateCloud ZillizCloud Milvus ElasticCloud Pinecone
+technologies has given rise to a diverse range of com-
+mercial and open-source solutions. In this section, to help
+usersbetterunderstandtheperformanceofdifferentVDBs,
+we have conducted a comprehensive comparison of sev-
+eral popular options, including PgVector1, QdrantCloud2,
+WeaviateCloud3,ZillizCloud4,Milvus5,ElasticCloud6,and
+Pinecone7. The comparison of VDBs includes both the
+attributes and characteristics of different VDBs, as well as
+a comparison of their loading capacity and search perfor-
+mance.
+4.1. TheComparisonofFeaturesand
+CharacteristicsofVectorDatabases
+ThecharacteristicsofVDBsdirectlyaffecttheirperfor-
+mance in practical applications. Therefore, gaining a deep
+understandingofthesedatabases’featuresisessentialforse-
+lectingthemostsuitableone.AsshowninTable1,wecom-
+pareseveralpopularVDBs,focusingontheirdifferencesin
+indexingmethods,querytypes,distancefunctions,scalabil-
+ity,maximumdimension,andsupportfordatamanagement
+featuressuchasreplication,sharding,andpartitioning.
+ItcanbeobservedfromTable 1thatallVDBssupport
+NNS and ANNS. However, the implementation strategies
+andoptimizationsforthesesearchesvarysignificantlyacross
+databases, depending on their underlying indexing meth-
+ods and architectural designs. For example, the indexing
+methods and distance functions are not exactly the same
+acrossdatabases,buttherearecommonalities.Forinstance,
+all databases except Pinecone support graph-based meth-
+ods, which indicates that graph-based methods are widely
+adopted for their ability to handle complex relationships
+anddatastructures.Additionally,themajorityofdatabases
+alsosupportthreedistancefunctions:innerproduct,cosine
+noitcnuFecnatsiD
+✓ ✓ ✓ ✓ ✓ ✓ ✓
+InnerProduct
+✓ ✓ ✓ ✓ ✓ ✓ ✓
+CosineSimilarity
+✓ ✓ ✓ × × × ×
+ManhattanDistance ✓ × ✓ ✓ ✓ × ×
+HammingDistance
+✓ × × ✓ ✓ × ×
+JaccardDistance
+✓ × × × × × ×
+TaxicabDistance
+✓ ✓ ✓ × ✓ ✓ ✓
+EuclideanDistance
+× × × × ✓ × × StructuralSimilarity
+× × × × × ✓ ×
+MaxInnerProduct
+Abbreviations:✓ Support,× NotSupport
+ThedatabaseinformationlistedaboveisbasedondatauptoDecember1,2024.
+Table 3
+Overview of Supported Indexing Methods in VDBs
+PgVectorQdrantCloudWeaviateCloudZillizCloudMilvusElasticCloudPinecone
+dohteMgnixednI
+✓ ✓ ✓ ✓ ✓ ✓
+HNSW N/A
+× × ✓ × ✓ ×
+Flat N/A
+× × × × ✓ ×
+BINFlat N/A × × × × ✓ ×
+IVF_Flat N/A
+× × × × ✓ ×
+BIN_IVF_Flat N/A
+× × × × ✓ ×
+IVF_SQ8 N/A
+× × × × ✓ ×
+IVF_PQ N/A
+✓ × × × × ×
+B-tree N/A
+× × × ✓ × ×
+LSH N/A
+✓ × × × × ×
+BRIN N/A
+✓ × × × ✓ ✓
+Inverted_File_Index × × × × × × N/A
+SPARSEInvertedIndex N/A
+× × × × ✓ × SPARSEWAND N/A
+✓ × × × × ×
+GIST N/A
+✓ × × × × ×
+GIN N/A
+× ✓ × ✓ × ×
+DiskANN N/A × × × ✓ × ×
+SCANN N/A
+× ✓ × × × ×
+SparseVectorIndex N/A
+× ✓ × × × ×
+Parameterizedindex N/A
+Abbreviations:N/A Unknown,✓ Support,× NotSupport
+ThedatabaseinformationlistedaboveisbasedondatauptoDecember1,2024.
+similarity,andEuclideandistance.Fordetailsontheindex-
+ing methods and distance functions supported by different
+databases,seeTable2andTable3below.
+1http://github.com/pgvector.
+2https://www.qdrant.tech.
+3http://weaviate.io.
+4http://zilliz.com/.
+5http://milvus.io.
+6http://elastic.co.
+7http://pinecone.io.
+Ma et al.: PreprintsubmittedtoElsevier Page 16 of 25
+
+[[page:17]]
+Survey on Vector Database
+Table 4
+Scalability is a critical factor in evaluating the perfor-
+VECTOR DATABASE EVALUATION TEST CASES
+manceandflexibilityofVDBs,especiallyforlarge-scaleand
+high-demand applications. Scalability is typically catego- CaseNo. CaseType Dataset DatasetSize VectorDimensions FilteringRate TestMetrics
+rizedintohorizontalscalingandverticalscaling.Horizontal 1 Capacity SIFT1 500K 128 N/A NIV
+scaling refers to a database’s ability to distribute data and 2 Capacity GIST2 100K 960 N/A NIV
+computation across multiple nodes, allowing it to handle 3 SearchPerformance GoogleC43 500K 1536 N/A IBT,R,L,MQPS
+large datasets and high query throughput. This approach 1http://corpus-texmex.irisa.fr/
+isparticularlybeneficialforcloud-nativeenvironmentsand 2http://corpus-texmex.irisa.fr/
+3TheprocessedversionofGoogleC4dataset(https://huggingface.co/datasets/allenai/c4)
+distributed architectures, where data is sharded and repli- Abbreviations:N/A.NotApplicable,NIV.Numberofinsertedvector,IBT.Indexbuildingtime,R.Recall,L.
+Latency,MQPS.MaxiumumQPS
+catedacrossmultiplemachines.Incontrast,verticalscaling
+involves upgrading a single machine with more resources,
+employs a relative scoring mechanism to ensure fair com-
+such as additional CPU power or memory, to manage in-
+parisons. For QPS, the highest observed value among all
+creased workloads. Both scaling methods offer distinct ad-
+testeddatabasesservesasthereferencebaseline;forlatency,
+vantages depending on the application’s requirements and
+the lowest observed value among all tested databases is
+the environment in which the database operates. Specifi-
+used as the baseline, with an additional 10 ms adjustment
+cally, PgVector, QdrantCloud, and Pinecone support both
+to avoid distortions when latency is very low. For systems
+horizontalandverticalscalingmodes,whileWeaviateCloud,
+that fail or encounter timeouts in a specific test case, their
+Milvus, and ElasticCloud only support horizontal scaling.
+scores are penalized by assigning a value proportionally
+ZillizCloudistheonlyonethatsupportsonlyverticalscal-
+worse than the lowest-performing result, using a factor of
+ing. Although the level of support for scalability varies
+two.Forexample,inthecaseofQPS,thescoreisreduced
+across databases, most exhibit strong capabilities in data
+to half of the minimum observed value, while for latency,
+storage and backup. Specifically, all databases, except for
+it is increased to twice the maximum observed value. The
+ElasticCloud,forwhichnorelevantinformationwasfound,
+formulasforcalculatingQPSandlatencymetricsforVDB
+supportReplication,Sharding,andPartitioning.Thesefea-
+tures ensure fault tolerance, efficient data distribution, and
+𝑥areasfollows:
+flexiblequeryhandling.
+The last column of table 1 provides statistics on the 𝑜𝑟𝑖𝑔𝑖𝑛_𝑄𝑃𝑆
+maximumvectordimensionssupportedbyeachdatabase.It 𝑄𝑃𝑆 𝑥 = 𝑏𝑎𝑠𝑒_𝑄𝑃𝑆 𝑥 ×100 (40)
+canbeobservedthat,withtheexceptionofElasticCloudand
+Pinecone, for which no relevant information was available,
+mostofthelistedVDBssupportatotalvectordimensionin 𝑏𝑎𝑠𝑒_𝐿𝑎𝑡𝑒𝑛𝑐𝑦+10𝑚𝑠
+𝐿𝑎𝑡𝑒𝑛𝑐𝑦 = ×100 (41)
+therangeoftensofthousands,withthemaximumsupported 𝑥 𝑜𝑟𝑖𝑔𝑖𝑛_𝐿𝑎𝑡𝑒𝑛𝑐𝑦 +10𝑚𝑠
+𝑥
+dimensions ranging from 16,000 to 65,535. It should be
+notedthatQdrantCloudhasdefaultsupportforupto65,535
+where 𝑜𝑟𝑖𝑔𝑖𝑛_𝑄𝑃𝑆
+𝑥
+and 𝑜𝑟𝑖𝑔𝑖𝑛_𝐿𝑎𝑡𝑒𝑛𝑐𝑦
+𝑥
+represent the
+originalQPSvalueandoriginallatencyvalue,respectively,
+dimensions,thoughthiscanbeconfiguredtosupporthigher
+dimensions. measured for database 𝑥 during the test. 𝑏𝑎𝑠𝑒_𝑄𝑃𝑆 and
+𝑏𝑎𝑠𝑒_𝐿𝑎𝑡𝑒𝑛𝑐𝑦isthereferencebaseline.
+Specifically, as shown in Table 4, the VDB evaluation
+4.2. TheComparisonofLoadingCapacityand
+consistsofaseriesoftestcasesdesignedtoassesscapacity,
+SearchPerformanceofVDB
+search performance, and filtering search performance. Ca-
+In this subsection, we have opted to use the perfor-
+pacitycases(Cases1and2)measurethedatabase’sability
+manceresultsobtainedfromtheexistingbenchmarkingtool,
+tohandlelargedatasets,focusingonthenumberofinserted
+VectorDBBench(ABenchmarkToolforVectorDB)8,rather
+vectorsusingSIFTandGISTdatasets.Searchperformance
+than conducting our own tests. This decision is based on
+cases(Case3)evaluateindexbuildingtime,recall,latency,
+the tool’s comprehensive and standardized testing method-
+andmaximumQPSusingtheGoogleC4dataset.
+ology, which provides reliable, reproducible results across
+TheVDBversionsinvolvedintheperformancetestsare
+various VDBs. By utilizing pre-existing data, we ensure
+as follows: Milvus-2c8g-hnsw-v2.2.12 (hereafter referred
+consistency and comparability, as these results have been
+to as Milvus), Pinecone-p1.x1 (hereafter referred to as
+generatedundercontrolledconditions,followingestablished
+Pinecone), WeaviateCloud-standard (hereafter referred to
+benchmarks.
+asWeaviateCloud),ZillizCloud-2cu-cap-v2023.6(hereafter
+VectorDBBenchprovidesacomprehensiveperformance
+referredtoasZillizCloud),QdrantCloud-2c8g-1node(here-
+analysis by evaluating VDBs based on metrics such as
+after referred to as QdrantCloud), PgVector-2c8g (here-
+QueriesPerSecond(QPS),recallrate,latency(thetimere-
+afterreferredtoasPgVector),andElasticCloud-upTo2.5c8g
+quiredforeachqueryfromsubmissiontosystemresponse),
+(hereafter referred to as ElasticCloud). To ensure mini-
+load duration, and maximum load count (The maximum
+mal differences in hardware performance across the tested
+number of vectors a database can successfully insert or
+databases, a configuration of 2 CPUs and 8GB of memory
+storeinasingleloadingoperation).Itstestingmethodology
+was specifically selected. For VDBs that do not meet this
+8https://github.com/zilliztech/VectorDBBench?tab=readme-ov-file hardware requirement, similar configurations were chosen
+Ma et al.: PreprintsubmittedtoElsevier Page 17 of 25
+
+[[page:18]]
+Survey on Vector Database
+competitive QPS, suggesting that it may prioritize speed
+over accuracy in certain scenarios. The timeouts observed
+in PgVector and ElasticCloud during load tests may be at-
+tributedtodataingestionmethods,networkconditions,orin-
+dexconstructionefficiency,andshouldnotbeinterpretedas
+definitive indicators of their performance. Therefore, when
+selecting a VDB, users should consider their specific ap-
+plication requirements—such as real-time responsiveness,
+datascale,andhardwareconstraints—andareencouragedto
+conduct customized evaluations in their own environments
+tovalidateperformance.
+Beyondtheestablishedvectordatabasesevaluatedabove,
+recent research has introduced HARMONY, a distributed
+ANNS system that addresses load imbalance and high
+communication overhead caused by traditional partition
+Figure 7: Performance Test Results for VDBs strategies[116]. It uses multi-granularity partitioning to
+balance load and minimize communication, plus an early-
+stop pruning mechanism to reduce overhead. Experiments
+ascloselyaspossible.Thespecifictestresultsareshownin
+show HARMONY achieves 4.63× higher throughput than
+the Figure 7. The overall ranking in Figure 7 is calculated
+leadingdistributed vectordatabases and58% improvement
+by averaging the rankings of each sub-test item, with the
+for skewed workloads, offering a promising direction for
+final overall ranking determined in ascending order of the
+futureVDBdevelopment.
+average values. According to the overall ranking, Milvus
+ranks first with its comprehensive performance, achieving
+5. Challenges
+aQPSof380,latencyof12.4milliseconds,andoutstanding
+performanceinloadcapacity.Incontrast,ElasticCloudranks 5.1. High-DimensionalVectorIndexandSearch
+last, with a QPS of 11.29 and latency as high as 361 VDBsrequireefficientindexingandsearchingofbillions
+milliseconds. In terms of recall rate, all databases perform of vectors in hundreds or thousands of dimensions, which
+close to 1.0, indicating little difference in query accuracy. poses a huge computational and storage challenge. Tradi-
+ZillizCloud demonstrates the best latency performance, at tionalindexingmethods,suchasB-treesorhashtables,are
+only6milliseconds,butitsloadcapacityisrelativelylow.It notsuitableforhigh-dimensionalvectorsbecausetheysuffer
+isworthnotingthatZillizCloud,ElasticCloud,andPgVector from dimensionality catastrophe. Therefore, VDBs need to
+were assigned penalty values (P) due to timeouts in the use specialized techniques such as ANN search, hashing,
+loadcapacitytests,whichmayhavebeencausedbynetwork quantization, or graph-based search to reduce complexity
+issuesandshouldnotbetakenasadefinitivemeasureoftheir andimprovetheaccuracyofvectorsimilaritysearch.
+actualperformance.Overall,nosingledatabaserankedinthe 5.2. SupportforHeterogeneousVectorDataTypes
+topthreeacrossalltests,indicatingthatdifferentdatabases VDBsneedtosupportdifferenttypesofvectordata,such
+mayhavetheirownstrengths.Additionally,theoverallrank as dense vectors, sparse vectors, binary vectors, and so on.
+is simply a straightforward average of the rankings in each Each type of vector data may have different characteristics
+test item, without applying weighted averages based on andrequirements,suchasdimensionality,sparsity,distribu-
+specific tasks, so it should be regarded as a preliminary tion,similaritymetrics,andsoon.Therefore,VDBsneedto
+reference. provide a flexible and adaptive indexing system to handle
+A deeper analysis of these performance results reveals various vector data types and optimize their performance
+thatmultiplefactorsinfluencetheoutcomes,includinghard- andavailability.
+wareconfiguration,deploymentmode,indexparameterset- 5.3. DistributedParallelProcessingSupport
+tings,anddatadistribution.Inthisbenchmark,alldatabases VDBs need to be scalable to handle large-scale vector
+were configured with 2 CPU cores and 8 GB of mem- data and queries that may exceed the capacity of a single
+orytominimizehardwarediscrepancies.However,different machine.Therefore,VDBsneedtosupportdistributedpar-
+databases exhibit varying efficiency in resource utilization. allel processing of vector data and queries across multiple
+For instance, ZillizCloud demonstrated outstanding low- computersorclusters.Thisinvolveschallengessuchasdata
+latency performance but faced limitations in load capacity partitioning,loadbalancing,faulttolerance,andconsistency.
+due to network timeouts and indexing strategies; Milvus 5.4. IntegrationwithEmergingApplication
+excelled in both QPS and load capacity, likely due to its
+Scenarios
+efficient index implementation and parallel processing ca- Currently,manyemergingapplicationscenariosremain
+pabilities. It is important to note the typical trade-off be- underexplored.Forinstance,theincrementalk-NNsearch[120]
+tweenQPSandrecall:higherquerythroughputoftencomes adopted by recommendation and e-commerce platforms
+at the cost of lower recall. In this evaluation, Pinecone faces significant challenges due to the vast imbalance be-
+achievedarelativelylowrecall(0.8064)butstillmaintained tween the volume of vector data processed and the data
+Ma et al.: PreprintsubmittedtoElsevier Page 18 of 25
+
+[[page:19]]
+Survey on Vector Database
+displayed to users. This method cannot be effectively sup- alsointroducesystematicerrorsduetothelargedatasetused
+ported by most VDBs [90]. Furthermore, with the latest for training. Another shortcoming is the oblivion problem.
+advancementsinsparsevectortechnology,integratingthese LLMs have been found to have the inclination to forget
+technologiesintoVDBstoenablehybridretrieval(combin- thepreviousinputinformationandalsoexhibitcatastrophic
+ingkeywordandvectorretrievalmethods)isincreasinglyre- forgetting behavior. In response to these issues, VDBs can
+gardedasabestpractice.Suchhybridsystemsmustmanage offerrobustsupportforLLMsinthefollowingaspects:
+largedatasetswhileenhancingcomputationalefficiencyand 1)VDBsasanExternalKnowledgeBase:Retrieval-
+maintainingretrievalquality. AugmentedGeneration(RAG).VDBsasExternalKnowl-
+edgeBase:Retrieval-AugmentedGeneration(RAG).Retrieval-
+5.5. DataSecurityandPrivacyProtection
+As cyber threats intensify and regulatory requirements AugmentedGeneration(RAG)technologyisaninnovation
+becomemorestringent,datasecurityandprivacyprotection in the field of artificial intelligence that integrates infor-
+fordatabaseshavebecometoppriorities[34].Comparedto mationretrievalwithlanguagegenerationmodels[64,65].
+thecomprehensivedatasecurityandprivacyprotectionfea- This technology significantly enhances the performance of
+turesoftraditionalrelationaldatabases,VDBsarestillinthe Large Language Models (LLMs) in knowledge-intensive
+early stages. Unlike traditional relational databases, VDBs tasks such as question answering, text summarization, and
+typicallyhandlelargeamountsofhigh-dimensionalembed- content generation by retrieving relevant information from
+ding vectors, which pose higher risks of privacy breaches an external knowledge base and inputting it as a prompt
+during storage, querying, and transmission. This is espe- to LLMs. RAG encompasses core processes including re-
+ciallytrueincloudplatforms,wheredataisoftenstoredin trieval,generation,andaugmentation.Figure8illustratesa
+anunencryptedformortransmittedbetweendifferentnodes, typicalworkflowofRAGwhenintegratedwithLLMs.The
+increasingthepotentialattacksurface[7,12].Inthefuture, system’soperationalworkflowmainlyconsistsofthreecore
+VDBswillneedtonotonlyleveragetraditionaldatasecurity components:datastorage,informationretrieval,andcontent
+and privacy protection methods to build a robust security generation.
+framework but also integrate emerging technologies, such TheRAGworkflowbeginswiththedatastoragephase.
+asblockchaintables[104](toensuredataimmutability)and During this phase, externally collected unstructured data
+AI-based anomaly detection (for proactive threat manage- (text,images,audio,andvideo)undergoespreprocessing,is
+ment),toadapttospecificapplicationscenarios. divided into smaller chunks, and is converted into vectors
+through an embedding model to capture semantic repre-
+6. SynergyofLLMsandVDBs sentations. These vectors are then stored in a VDB for
+subsequentvectorretrieval.
+When processing natural language, Large Language
+Next is the information retrieval phase. When a user
+Models(LLMs)needtoconvertnaturallanguageintohigh-
+poses a question in the form of a prompt, the embedding
+dimensional vectors, which requires robust capabilities for
+model generates a vector for the query and retrieves the
+storingandretrievinghigh-dimensionalvectors.Meanwhile,
+most semantically similar data chunks from the VDB. The
+theinherentissuesofLLMs,suchas"hallucinations"(gener-
+retrieved results are converted back from vector format to
+atingcontentthatseemsplausiblebutisfactuallyincorrect)
+theiroriginalformatandreturnedtotheuser.
+and "forgetfulness" (difficulty in remembering or utilizing
+Finally,inthecontentgenerationphase,theLargeLan-
+earlyinformation),alsonecessitatesupportingfacilitieslike
+guage Model (LLM) integrates the user’s original question
+vastexternalknowledgebasestomitigatethem,allofwhich
+andtheretrievedinformation,selectsanappropriateprompt
+cannotbeachievedwithoutthesupportofVDBs.Therefore,
+templatebasedonthetasktype,processestheprompt,and
+the integration of LLMs and VDBs is an inevitable trend.
+generatesthefinalanswer.
+Among the approaches, integrating VDBs into LLM sys-
+tems is a promising method. In the following section, we
+2)VDBsasaCost-effectiveSemanticCache.Theoper-
+ationofLLMsrequiressubstantialcomputationalresources,
+will delve into the fusion, mutual influence, and potential
+andfrequentAPIcallstothird-partymodelsincurhighcosts.
+applications of the two, providing references for scientific
+By integrating VDBs, they can be utilized as a semantic
+researchandindustrialapplications.
+cachetoachieveefficientsemanticmatchingthroughquery
+6.1. VDBsforLLMs
+embeddings. This method, by storing query embeddings,
+LLMs are characterized by large model capacity and
+can reduce redundant API calls, lower costs, and improve
+vast data corpus[87]. With hundreds of billions (or more)
+responsespeedandefficiency[95].Moreover,thecombina-
+ofparametersandextensivetextualtraining,theyarehighly
+tionofVDBsandLLMsdemonstratesstrongscalabilityand
+adept at comprehending human knowledge and instruc-
+adaptability, enabling efficient handling of a large volume
+tions [97]. However, LLMs do have certain shortcomings,
+ofqueries,stableperformanceunderfluctuatingworkloads,
+though [121]. One major shortcoming is hallucinations,
+andsupportformultipleembeddingmodelsandconfigura-
+wherethemodelgeneratesaresponsethatisfactuallyinac-
+tionstomeetdiversedeploymentneeds [15].UsingVDBs
+curate.Thisshortcomingismainlycausedbythefollowing
+asasemanticcacheforGPTisafeasiblestrategytopromote
+issues, including knowledge limitations confined by the
+thelarge-scaleapplicationofLLMs.
+trainingcorpus;theinternalknowledgeinLLMscannotbe
+updated, resulting in outdated knowledge; and LLMs may
+Ma et al.: PreprintsubmittedtoElsevier Page 19 of 25
+
+[[page:20]]
+Survey on Vector Database
+3) VDBs as a Reliable Memory of LLMs. A notable vector inputs, enrich ambiguous texts with additional de-
+shortcoming of current LLMs is their lack of strong long- tails (e.g., supplementing statistical data or case studies),
+term memory capabilities [49]. Memory systems can en- andfacilitatecross-language,cross-domaintexttransforma-
+hance the intelligence of LLMs, enabling them to possess tions(e.g.,multilingualsimplificationoflegaldocuments).
+autonomous capabilities and improve their performance in Furthermore,LLMssignificantlyoptimizethemanagement
+various tasks. VDBs can act as a memory tool for LLMs, tasks of VDBs: they recommend configuration parameters
+supporting the storage of historical information and allow- byanalyzinghistoricalperformancedatatoimprovesystem
+ing LLMs to effectively store different types of historical stability, automatically diagnose performance bottlenecks
+interaction information, such as knowledge, dialogue, and while generating interpretable reports, and efficiently pro-
+relatedtaskinformation.Additionally,LLMslacktheability cess heterogeneous data through semantic analysis (e.g.,
+to dynamically update knowledge and engage in few-shot schema matching and error correction). These applications
+learning.VDBscancontinuouslyupdatenewinformationto not only reduce the cost of manual intervention but also
+ensurethatresponsesaremadebasedonthelatestandmost extend the generalization capabilities of traditional meth-
+relevantdata. ods through adaptive solutions, highlighting the core value
+of LLMs in enhancing the intelligence and scalability of
+6.2. LLMsforVDBs
+In addition, LLMs in turn can empower databases. VDBs[5,22,33,53,102,112,124].
+AI technology has been proved to perform well in many 6.3. AGeneralLLMsandVDBsSynergized
+data management tasks, such as data processing, database Framework
+optimization, and data analysis. However, traditional ma- For a framework that incorporates a large language
+chinelearningalgorithmsareunabletosolvegeneralization modelandaVDB,asshowninFigure8,canbeunderstood
+and inference problems. For example, traditional machine by splitting it into four levels: the user level, the model
+learning algorithms have difficulty in adapting to different level,theAIdatabaselevel,andthedatalevel,respectively.
+databases,differentqueryworkloads,anddifferenthardware For a user who has never been exposed to large language
+environments, making them unable to solve the generaliz- modeling,itispossibletoenternaturallanguagetodescribe
+ability and inference problems in data management tasks. theirproblem.Forauserwhoisproficientinlargelanguage
+Inaddition,traditionalmachinelearningalgorithmscannot modeling,awell-designedpromptcanbeentered.TheLLM
+satisfy the need for contextual understanding and multi- nextprocessestheproblemtoextractthekey-wordsinit,or
+step reasoning in optimization scenarios such as database inthecaseofopen-sourceLLMs,thecorre-spondingvector
+diagnosis, root cause analysis, etc. However, LLMs bring embeddings can be obtained directly. The VDB stores un-
+promisingsolutionstotheaboveproblems[125]. structureddataandtheirjointembeddings.Thenextstepis
+LLMsassistdatabasemanagementtasks.LargeLan- togototheVDBtofindsimilarnearestneighbors.Theones
+guageModels(LLMs)areactivelycontributingtodatabase obtainedfromthesequencesinthebiglanguagemodelare
+management and driving innovation in the field of data comparedwiththevectorencodingsintheVDBbymeans
+management. For instance, LLMs can analyze abnormal of the NNS or ANNS algorithms. And different results are
+databasemetrics,reporttherootcausesandpotentialsolu- derivedthroughapredefinedserializationchain,whichplays
+tionstoadministrators,andalsoserveasanaturallanguage theroleofasearchengine.Ifitisnotageneralizedquestion,
+interface to convert user requests into executable queries. the results derived need to be further put into the domain
+Moreover,afterbeingintegratedwithdatabases,LLMscan model; for example, imagine we are seeking an intelligent
+performexceptionallywellonnewtaskswithminimalfine- scientificassistant,whichcanbeputintothemodelofAI4S
+tuning,makingthemmoreadaptabletochangesindatabase togetprofessionalresults.Eventuallyitcanbeplacedagain
+schemas, data, and hardware. By guiding model inference intotheLLMtogetcoherentgeneratedresults.Forthedata
+through prompts, LLMs achieve a user-friendly interface, layer located at the bottom, one can choose from a variety
+providing an intuitive experience without the need for ex- of file formats such as PDF, CSV, MD, DOC, PNG, SQL,
+tensive training data or multiple iterations to incorporate etc.,anditssourcescanbejournals,conferences,textbooks,
+userfeedback.Additionally,LLMscanextractinsightsfrom and so on. Corresponding disciplines can be art, science,
+database components (such as documents and code), in- engineering,business,medicine,law,etc.
+tegrating their strengths to enhance database performance
+and compensate for the weaknesses of individual compo-
+nents[66].
+LLMs smarten vector data handling. The deep in-
+tegration of LLMs with VDBs has pioneered innovative
+application scenarios for data-driven workflows, encom-
+passing content generation, knowledge enhancement, and
+systemoptimization.Bycombiningsemanticunderstanding
+with vectorized retrieval, LLMs can generate customized
+texts (e.g., thematic articles, stylized summaries) based on
+Ma et al.: PreprintsubmittedtoElsevier Page 20 of 25
+
+[[page:21]]
+Survey on Vector Database
+Information Retrieval
+User Question
+Vector Search
+2025 China EV sales leaders?
+Vectorized Relevant Docs Prompt
+Embedding Model Vector Database Retrieve •2 m 0 a 2 r 5 k e C t h l i e n a a d C e u rs rrent P u l s e in a g se t h a e n s g w iv e e r n t h d e o c q u u m es e t n io ts n
+•2025 Report of the Documents: “[Relevant Docs]”
+Chunking C A h u i t n o a m A o s b s i o le ciation of Question: ”[User Question]”
+Unstructured Data Manufacturers
+Result
+Based on RAG data,
+the top EV brands in
+China by 2025 are
+likely to be:
+RankBrandShare
+Image & Text Audio & Video Large Language Model 1 2 T B e Y s D la 3 1 5 5 % %
+Ddata Storage Content Generation
+Figure 8: A common workflow of RAG
+User Intent
+Applications of quantum
+computing in drug discovery
+Prompt:
+[You are an expert in quantum computing and Analysis of Quantum Computing
+biomedicine. Please accomplish the following Algorithms in Molecular
+User Level [ o O b b je je ct c i t v i e ve s: . 1 ] :Analyze the efficiency improvements D [O y b n j a e m ct i i c v s e S 1 im :Va u r la ia ti t o io n n s a : l
+of quantum computing algorithms (e.g., VQE, Quantum Eigensolver(VQE)]
+QAOA) in molecular dynamics simulations. [Objective 2:Comparison with
+Objective 2:Compare with classical methods] Classical Methods:]
+Key Term Model-extracted Keywords:
+Extraction [VQE, QAOA, Molecular Dynamics
+ModelLevel Simulation, Comparison]
+V Em ec b to e r d ding 00.4 0.4.2 00.5 0.5.7 00.7 0.7.7 00.9 0.9.8 00.1 0.1.3 Domain-specific model
+Embeddings
+AI Database Level and
+Unstructured
+data
+Vector Database Similarity Search
+Multi-type
+Unstructured
+Data Level Data
+Multidisciplinary
+Journal Article Patent Databases CodeRepository Online Course Fields
+Figure9:AcommonworkflowofRetrieval-AugmentedGener-
+ation (RAG).
+Ma et al.: PreprintsubmittedtoElsevier Page 21 of 25
+
+[[page:22]]
+Survey on Vector Database
+7. Conclusion [19] Bob, K., Teschner, D., Kemmer, T., Gomez-Zepeda, D., Tenzer,
+S.,Schmidt,B.,Hildebrandt,A.,2022. Locality-sensitivehashing
+In this paper, we provide a comprehensive and up-to- enablesefficientandscalablesignalclassificationinhigh-throughput
+date literature review on VDBs, including the key algo- massspectrometryrawdata. BMCBioinformatics23,287. URL:
+rithms, storage, and retrieval methods. We also compare ^1^,doi:10.1186/s12859-022-04833-5.
+representative VDB systems, analyze their design trade- [20] Cai, D., 2019. A revisit of hashing algorithms for approximate
+nearestneighborsearch.IEEETransactionsonKnowledgeandData
+offs,anddiscusstheirstrengths,limitations,andtypicaluse
+Engineering33,2337–2348.
+cases.Furthermore,weidentifykeychallengesandoutline [21] Cao, J., Fang, J., Meng, Z., Liang, S., 2024. Knowledge graph
+potential research directions, including improved indexing embedding:Asurveyfromtheperspectiveofrepresentationspaces.
+and closer integration with LLMs. We believe this survey ACMComputingSurveys56,1–42.
+offersasolidreferenceforresearchersandpractitioners,and [22] Chang,S.,Fosler-Lussier,E.,2023.Howtopromptllmsfortext-to-
+sql:Astudyinzero-shot,single-domain,andcross-domainsettings.
+contributestoaclearerunderstandingofthecurrentstateand
+arXiv:2305.11853.
+futuredirectionofVDBs. [23] Ciaccia,P.,Patella,M.,Zezula,P.,1997.M-tree:Anefficientaccess
+methodforsimilaritysearchinmetricspaces,in:Vldb,p.426–435.
+[24] Costa,C.H.,Maia,P., Carlos,F.,etal.,2015. Shardingbyhash
+References
+partitioning,in:Proceedingsofthe17thInternationalConference
+[1] ,.http://weaviate.io. onEnterpriseInformationSystems,pp.313–320.
+[2] ,.http://vespa.ai. [25] Datar,M.,Immorlica,N.,Indyk,P.,Mirrokni,V.S.,2004.Locality-
+[3] ,a.OnlineProductQuantization|IEEETransactionsonKnowledge sensitivehashingschemebasedonp-stabledistributions,in:Pro-
+andDataEngineering.URL:https://dl.acm.org/doi/10.1109/TKDE. ceedings of the twentieth annual symposium on Computational
+2018.2817526. geometry,p.253–262.
+[4] ,b. RemoteSensing|FreeFull-Text|DeepHashingUsingProxy [26] DeCandia,G.,Hastorun,D.,Jampani,M.,Kakulapati,G.,Laksh-
+LossonRemoteSensingImageRetrieval. URL:https://www.mdpi. man,A.,Pilchin,A.,Sivasubramanian,S.,Vosshall,P.,Vogels,W.,
+com/2072-4292/13/15/2924/htm. 2007. Dynamo:Amazon’shighlyavailablekey-valuestore. ACM
+[5] Albalak,A.,Elazar,Y.,Xie,S.M.,Longpre,S.,Lambert,N.,Wang, SIGOPSoperatingsystemsreview41,205–220.
+X., Muennighoff, N., Hou, B., Pan, L., Jeong, H., et al., 2024. [27] DeWitt,D.,Gray,J.,1992.Paralleldatabasesystems:Thefutureof
+A survey on data selection for language models. arXiv preprint highperformancedatabasesystems. CommunicationsoftheACM
+arXiv:2402.16827. 35,85–98.
+[6] Allam, A.M.N., Haggag, M.H., 2012. The question answering [28] DeWitt,D.J.,Ghandeharizadeh,S.,1990.Hybrid-rangepartitioning
+systems:Asurvey. InternationalJournalofResearchandReviews strategy:Anewdeclusteringstrategyformultiprocessordatabase
+inInformationSciences(IJRRIS)2. machine,in:Proc.16thinternationalConferenceonVLDB,pp.481–
+[7] Amaithi Rajan, A., V, V., 2024. Systematic survey: secure and 492.
+privacy-preservingbigdataanalyticsincloud.JournalofComputer [29] Dikkala,N.,Kaplun,G.,Panigrahy,R.,2021. Formanifoldlearn-
+InformationSystems64,136–156. ing,deepneuralnetworkscanbelocalitysensitivehashfunctions.
+[8] Andoni,A.,Indyk,P.,2008. Near-optimalhashingalgorithmsfor arXiv:2103.06875.
+approximatenearestneighborinhighdimensions.Communications [30] Dolatshah, M., Hadian, A., Minaei-Bidgoli, B., 2015. Ball*-
+oftheACM51,117–122. tree: Efficient spatial indexing for constrained nearest-neighbor
+[9] Andoni,A.,Indyk,P.,Nguyen,H.L.,Razenshteyn,I.,2013.Beyond search in metric spaces. URL: http://arxiv.org/abs/1511.00628.
+Locality-SensitiveHashing.URL:http://arxiv.org/abs/1306.1547. arXiv:1511.00628[cs].
+arXiv:1306.1547[cs]. [31] Done,P.,2023. PracticalMongoDBAggregations. GitHub. URL:
+[10] Andoni,A.,Indyk,P.,etal.,2023. Localitysensitivehashing(lsh) www.practical-mongodb-aggregations.com.accessed:2024-12-01.
+homepage.^1^.Accessed:2023-10-18. [32] E, B., AB., S., 2015. Annoy (approximate nearest neighbors oh
+[11] Andoni,A.,Razenshteyn,I.,2015.OptimalData-DependentHash- yeah).[DB/OL].(2015)[2023-07-28].3.
+ingforApproximateNearNeighbors. URL:http://arxiv.org/abs/ [33] Fan,M.,Han,X.,Fan,J.,Chai,C.,Tang,N.,Li,G.,Du,X.,2024.
+1501.01062.arXiv:1501.01062[cs]. Cost-effective in-context learning for entity resolution: A design
+[12] Asaad,R.R.,Zeebaree,S.R.,2024.Enhancingsecurityandprivacy spaceexploration,in:2024IEEE40thInternationalConferenceon
+indistributedcloudenvironments:Areviewofprotocolsandmech- DataEngineering(ICDE),IEEE.pp.3696–3709.
+anisms.AcademicJournalofNawrozUniversity13,476–488. [34] Farayola,O.A.,Olorunfemi,O.L.,Shoetan,P.O.,2024.Dataprivacy
+[13] vanBaalen,M.,Kuzmin,A.,Nagel,M.,Couperus,P.,Bastoul,C., andsecurityinit:areviewoftechniquesandchallenges.Computer
+Mahurin,E.,Blankevoort,T.,Whatmough,P.,2024. Gptvq:The Science&ITResearchJournal5,606–615.
+blessing of dimensionality for llm quantization. arXiv preprint [35] Fu,C.,Wang,C.,Cai,D.,2021.Highdimensionalsimilaritysearch
+arXiv:2402.15319. with satellite system graph: Efficiency, scalability, and unindexed
+[14] Bailis,P.,Venkataraman,S.,Franklin,M.J.,Hellerstein,J.M.,Stoica, query compatibility. IEEE Transactions on Pattern Analysis and
+I.,2014. Quantifyingeventualconsistencywithpbs. Communica- MachineIntelligence44,4139–4150.
+tionsoftheACM57,93–102. [36] Gao, J., Long, C., 2023. High-dimensional approximate nearest
+[15] Bang,F.,2023. Gptcache:Anopen-sourcesemanticcacheforllm neighbor search: with reliable and efficient distance comparison
+applicationsenablingfasteranswersandcostsavings,in:Proceed- operations. ProceedingsoftheACMonManagementofData1,
+ingsofthe3rdWorkshopforNaturalLanguageProcessingOpen 1–27.
+SourceSoftware(NLP-OSS2023),pp.212–218. [37] Gao,J.,Long,C.,2024. Rabitq:Quantizinghigh-dimensionalvec-
+[16] Beecher,V.,2021. Oracledatabaseusingoraclesharding. URL: torswithatheoreticalerrorboundforapproximatenearestneighbor
+https://docs.oracle.com/en/database/oracle/oracle-database/18/ search.ProceedingsoftheACMonManagementofData2,1–27.
+shard/book-index.html. [38] Garcia-Molina, H., Barbara, D., 1985. How to assign votes in a
+[17] Bentley,J.L.,1975. Multidimensionalbinarysearchtreesusedfor distributedsystem.JournaloftheACM(JACM)32,841–860.
+associativesearching.CommunicationsoftheACM18,509–517. [39] Garmany,J.,Freeman,R.G.,2003. OracleReplication:Snapshot,
+[18] Biancofiore, G.M., Deldjoo, Y., Noia, T.D., Di Sciascio, E., Nar- Multi-masterandMaterializedViewsScripts.RampantTechPress.
+ducci,F.,2024. Interactivequestionansweringsystems:Literature
+review.ACMComputingSurveys56,1–38.
+Ma et al.: PreprintsubmittedtoElsevier Page 22 of 25
+
+[[page:23]]
+Survey on Vector Database
+[40] Ge,T.,He,K.,Ke,Q.,Sun,J.,2013. Optimizedproductquantiza- internationalconferenceonmanagementofdata,pp.489–504.
+tion.IEEEtransactionsonpatternanalysisandmachineintelligence [62] Le Tan, D.K., Le, H., Hoang, T., Do, T.T., Cheung, N.M., 2018.
+36,744–755. Deepvq: A deep network architecture for vector quantization, in:
+[41] Ghojogh, B., Sharifian, S., Mohammadzade, H., 2018. Tree- ProceedingsoftheIEEEConferenceonComputerVisionandPat-
+basedoptimization:Ameta-algorithmformetaheuristicoptimiza- ternRecognitionWorkshops,pp.2579–2582.
+tion.arXiv:1809.09284. [63] Lee,D.,Choi,J.,Kim,J.H.,Noh,S.H.,Min,S.L.,Cho,Y.,Kim,C.S.,
+[42] Grund, D., Reineke, J., 2009. Abstract interpretation of fifo re- 1999. Ontheexistenceofaspectrumofpoliciesthatsubsumesthe
+placement,in:InternationalStaticAnalysisSymposium,Springer. leastrecentlyused(lru)andleastfrequentlyused(lfu)policies,in:
+pp.120–136. Proceedingsofthe1999ACMSIGMETRICSinternationalconfer-
+[43] Grund,DanielandReineke,Jan,2010. Preciseandefficientfifo- enceonMeasurementandmodelingofcomputersystems,pp.134–
+replacementanalysisbasedonstaticphasedetection,in:201022nd 143.
+EuromicroConferenceonReal-TimeSystems,IEEE.pp.155–164. [64] Lewis,P.,Perez,E.,Piktus,A.,Petroni,F.,Karpukhin,V.,Goyal,
+[44] Gu, X., Ding, C., 2011. On the theory and potential of lru-mru N.,Küttler,H.,Lewis,M.,Yih,W.t.,Rocktäschel,T.,etal.,2020.
+collaborativecachemanagement. ACMSIGPLANNotices46,43– Retrieval-augmentedgenerationforknowledge-intensivenlptasks.
+54. Advancesinneuralinformationprocessingsystems33,9459–9474.
+[45] Guare,J.,2016. Sixdegreesofseparation,in:TheContemporary [65] Lewis,P.,Perez,E.,Piktus,A.,Petroni,F.,Karpukhin,V.,Goyal,
+Monologue:Men.Routledge,pp.89–93. N.,Küttler,H.,Lewis,M.,tauYih,W.,Rocktäschel,T.,Riedel,S.,
+[46] Guo,R.,Luan,X.,Xiang,L.,Yan,X.,Yi,X.,Luo,J.,Cheng,Q., Kiela, D., 2021. Retrieval-augmented generation for knowledge-
+Xu,W.,Luo,J.,Liu,F.,etal.,2022. Manu:acloudnativevector intensive nlp tasks. URL: https://arxiv.org/abs/2005.11401,
+databasemanagementsystem.arXivpreprintarXiv:2206.13843. arXiv:2005.11401.
+[47] Guo, R., Sun, P., Lindgren, E., Geng, Q., Simcha, D., Chern, F., [66] Li, G., Zhou, X., Zhao, X., 2024. Llm for data management.
+Kumar,S.,2020.Acceleratinglarge-scaleinferencewithanisotropic ProceedingsoftheVLDBEndowment17,4213–4216.
+vectorquantization,in:InternationalConferenceonMachineLearn- [67] Li,L.,Hu,Q.,2020. Optimizedhighorderproductquantization
+ing,PMLR.pp.3887–3896. forapproximatenearestneighborssearch. FrontiersofComputer
+[48] Guttman,A.,1984. R-trees:adynamicindexstructureforspatial Science14,259–272.URL:^1^,doi:10.1007/s11704-018-7049-5.
+searching,in:Proceedingsofthe1984ACMSIGMODinternational [68] Li,W.,Zhang,Y.,Sun,Y.,Wang,W.,Li,M.,Zhang,W.,Lin,X.,
+conferenceonManagementofdata,p.47–57. 2019. Approximatenearestneighborsearchonhighdimensional
+[49] Hatalis,K.,Christou,D.,Myers,J.,Jones,S.,Lambert,K.,Amos- data—experiments,analyses,andimprovement.IEEETransactions
+Binks, A., Dannenhauer, Z., Dannenhauer, D., 2023. Memory onKnowledgeandDataEngineering32,1475–1488.
+matters:Theneedtoimprovelong-termmemoryinllm-agents,in: [69] Liu, H., Deng, M., Xiao, C., 2011. An improved best bin first
+ProceedingsoftheAAAISymposiumSeries,pp.277–280. algorithmforfastimageregistration,in:Proceedingsof2011Inter-
+[50] Heo,J.P.,Lee,Y.,He,J.,Chang,S.F.,Yoon,S.E.,2012. Spherical nationalConferenceonElectronic&MechanicalEngineeringand
+hashing,in:2012IEEEconferenceoncomputervisionandpattern InformationTechnology,IEEE.pp.355–358.
+recognition,IEEE.pp.2957–2964. [70] Liu,H.,Wang,R.,Shan,S.,Chen,X.,2016.Deepsupervisedhash-
+[51] Hobbs,L.,Hillson,S.,Lawande,S.,Smith,P.,2011.Oracle10gdata ingforfastimageretrieval,in:ProceedingsoftheIEEEconference
+warehousing.Elsevier. oncomputervisionandpatternrecognition,p.2064–2072.
+[52] Hotka,D.,2002.Oracle9iDevelopmentbyExample.QuePublish- [71] Liu,Q.,Hu,J.,Xiao,Y.,Zhao,X.,Gao,J.,Wang,W.,Li,Q.,Tang,
+ing. J., 2024a. Multimodal recommender systems: A survey. ACM
+[53] Huang,X.,Li,H.,Zhang,J.,Zhao,X.,Yao,Z.,Li,Y.,Yu,Z.,Zhang, ComputingSurveys57,1–17.
+T.,Chen,H.,Li,C.,2024.Llmtune:Acceleratedatabaseknobtuning [72] Liu,T.,Moore,A.W.,Gray,A.,Yang,K.,2006.Newalgorithmsfor
+withlargelanguagemodels.arXivpreprintarXiv:2404.11581. efficienthigh-dimensionalnonparametricclassification. Journalof
+[54] Jafari, O., Maurya, P., Nagarkar, P., Islam, K.M., Crushev, C., machinelearningresearch7.
+2021. Asurveyonlocalitysensitivehashingalgorithmsandtheir [73] Liu,Y.,Pan,Z.,Wang,L.,Wang,Y.,2022.Anewfastinvertedfile-
+applications.arXiv:2102.08942. based algorithm for approximate nearest neighbor search without
+[55] Jégou, H., Douze, M., Johnson, J., Hosseini, L., Deng, C., 2022. accuracyreduction.InformationSciences608,613–629.
+Faiss: Similarity search and clustering of dense vectors library. [74] Liu,Y.,Wen,J.,Wang,Y.,Ye,S.,Zhang,L.L.,Cao,T.,Li,C.,Yang,
+AstrophysicsSourceCodeLibrary,ascl–2210. M.,2024b.Vptq:Extremelow-bitvectorpost-trainingquantization
+[56] Jegou,H.,Douze,M.,Schmid,C.,2010. Productquantizationfor forlargelanguagemodels.arXivpreprintarXiv:2409.17066.
+nearestneighborsearch. IEEEtransactionsonpatternanalysisand [75] Luo,X.,Wang,H.,Wu,D.,Chen,C.,Deng,M.,Huang,J.,Hua,
+machineintelligence33,117–128. X.S.,2022.Asurveyondeephashingmethods.arXiv:2003.03369.
+[57] Joshi,S.,. Introductiontovectordatabasesforgenerativeai:Ap- [76] Luo, Xiao and Wang, Haixin and Wu, Daqing and Chen, Chong
+plications,performance,futureprojections,andcostconsiderations. andDeng,MinghuaandHuang,JianqiangandHua,Xian-Sheng,
+InternationalAdvancedResearchJournalinScience,Engineering 2023. Asurveyondeephashingmethods. ACMTransactionson
+andTechnologyISSN(O),2393–8021. KnowledgeDiscoveryfromData17,1–50.
+[58] Karger, D., Lehman, E., Leighton, T., Panigrahy, R., Levine, M., [77] Malkov,Y.A.,Yashunin,D.A.,2018. Efficientandrobustapprox-
+Lewin,D.,1997. Consistenthashingandrandomtrees:Distributed imate nearest neighbor search using hierarchical navigable small
+cachingprotocolsforrelievinghotspotsontheworldwideweb,in: worldgraphs. IEEEtransactionsonpatternanalysisandmachine
+Proceedingsofthetwenty-ninthannualACMsymposiumonTheory intelligence42,824–836.
+ofcomputing,pp.654–663. [78] Malkov Y and Ponomarenko A and Logvinov A and Krylov A.,
+[59] Karger,D.,Sherman,A.,Berkheimer,A.,Bogstad,B.,Dhanidina, 2012.Scalabledistributedalgorithmforapproximatenearestneigh-
+R.,Iwamoto,K.,Kim,B.,Matkins,L.,Yerushalmi,Y.,1999. Web borsearchprobleminhighdimensionalgeneralmetricspaces,in:
+caching with consistent hashing. Computer Networks 31, 1203– SimilaritySearchandApplications:5thInternationalConference,
+1213. SISAP2012,Toronto,ON,Canada,August9-10,2012.Proceedings
+[60] Karthik,V.,Khan,S.,Singh,S.,Simhadri,H.V.,Vedurada,J.,2024. 5,pp.132–147.
+Bang: Billion-scale approximate nearest neighbor search using a [79] Manohar, M.D., Shen, Z., Blelloch, G., Dhulipala, L., Gu, Y.,
+singlegpu.arXivpreprintarxiv:2401.11324. Simhadri, H.V., Sun, Y., 2024. Parlayann: Scalable and deter-
+[61] Kraska, T., Beutel, A., Chi, E.H., Dean, J., Polyzotis, N., 2018. ministicparallelgraph-basedapproximatenearestneighborsearch
+Thecaseforlearnedindexstructures,in:Proceedingsofthe2018 algorithms, in: Proceedings of the 29th ACM SIGPLAN Annual
+Ma et al.: PreprintsubmittedtoElsevier Page 23 of 25
+
+[[page:24]]
+Survey on Vector Database
+SymposiumonPrinciplesandPracticeofParallelProgramming,pp. [101] Taipalus, T., 2024. Vector database management systems: Fun-
+270–285. damental concepts, use-cases, and current challenges. Cognitive
+[80] Matsui, Y., Uchida, Y., Jégou, H., Satoh, S., 2018. A survey of SystemsResearch85,101216.
+productquantization. ITETransactionsonMediaTechnologyand [102] Tang,R.,Han,X.,Jiang,X.,Hu,X.,2023. Doessyntheticdata
+Applications6,2–10. generationofllmshelpclinicaltextmining?arXiv:2303.04360.
+[81] Mattson,R.L.,Gecsei,J.,Slutz,D.R.,Traiger,I.L.,1970.Evaluation [103] Touya,G.,Lokhat,I.,2020.Deeplearningforenrichmentofvector
+techniquesforstoragehierarchies.IBMSystemsjournal9,78–117. spatialdatabases:Applicationtohighwayinterchange.ACMTrans.
+[82] Mirrokni,V.,Thorup,M.,Zadimoghaddam,M.,2018. Consistent SpatialAlgorithmsSyst.6.URL:https://doi.org/10.1145/3382080,
+hashingwithboundedloads,in:ProceedingsoftheTwenty-Ninth doi:10.1145/3382080.
+Annual ACM-SIAM Symposium on Discrete Algorithms, SIAM. [104] Valadares,D.C.G.,Perkusich,A.,Martins,A.F.,Kamel,M.B.M.,
+pp.587–604. Seline,C.,2023.Privacy-preservingblockchaintechnologies.Sen-
+[83] Mittal,S.,2017. Asurveyoftechniquesforcachepartitioningin sors23. URL:https://www.mdpi.com/1424-8220/23/16/7172,doi:10.
+multicoreprocessors.ACMComputingSurveys(CSUR)50,1–39. 3390/s23167172.
+[84] Mohoney,J.,Pacaci,A.,Chowdhury,S.R.,Mousavi,A.,Ilyas,I.F., [105] Wang,J.,Yi,X.,Guo,R.,Jin,H.,Xu,P.,Li,S.,Wang,X.,Guo,
+Minhas, U.F., Pound, J., Rekatsinas, T., 2023. High-throughput X., Li, C., Xu, X., et al., 2021. Milvus: A purpose-built vector
+vectorsimilaritysearchinknowledgegraphs. Proceedingsofthe datamanagementsystem,in:Proceedingsofthe2021International
+ACMonManagementofData1,1–25. ConferenceonManagementofData,pp.2614–2627.
+[85] Omohundro, S.M., 1989. Five balltree construction algorithms. [106] Wang,M.,Lv,L.,Xu,X.,Wang,Y.,Yue,Q.,Ni,J.,2024a. An
+Berkeley:InternationalComputerScienceInstitute. efficient and robust framework for approximate nearest neighbor
+[86] Ongaro,D.,Ousterhout,J.,2014. Insearchofanunderstandable searchwithattributeconstraint. AdvancesinNeuralInformation
+consensusalgorithm,in:2014USENIXannualtechnicalconference ProcessingSystems36.
+(USENIXATC14),pp.305–319. [107] Wang,M.,Xu,W.,Yi,X.,Wu,S.,Peng,Z.,Ke,X.,Gao,Y.,Xu,
+[87] OpenAI,J.A.,Adler,S.,Agarwal,S.,Ahmad,L.,Akkaya,I.,Ale- X.,Guo,R.,Xie,C.,2024b. Starling:Ani/o-efficientdisk-resident
+man,F.L.,Almeida,D.,Altenschmidt,J.,Altman,S.,Anadkat,S., graphindexframeworkforhigh-dimensionalvectorsimilaritysearch
+et al., 2024. Gpt-4 technical report, 2024. URL https://arxiv. ondatasegment.ProceedingsoftheACMonManagementofData
+org/abs/2303.087742,6. 2,1–27.
+[88] P,T.,P,T.,M.,S.,2021.K-meanstree:anoptimalclusteringtreefor [108] Wang,Y.,Pan,Z.,Li,R.,2019. Anewcell-levelsearchbasednon-
+unsupervisedlearning. TheJournalofSupercomputing77,5239– exhaustiveapproximatenearestneighbor(ann)searchalgorithmin
+5266. the framework of product quantization. IEEE Access 7, 37059–
+[89] Pan, J.J., Wang, J., Li, G., 2024. Vector database management 37070.doi:10.1109/ACCESS.2019.2900730.
+techniquesandsystems,in:Companionofthe2024International [109] Wang, Z., Wang, P., Palpanas, T., Wang, W., 2023a. Graph-and
+ConferenceonManagementofData,pp.597–604. tree-based indexes for high-dimensional vector similarity search:
+[90] Pan,JamesJieandWang,JianguoandLi,Guoliang,2024. Survey Analyses,comparisons,andfuturedirections.IEEEDataEng.Bull.
+ofvectordatabasemanagementsystems. TheVLDBJournal33, 46,3–21.
+1591–1615. [110] Wang, Z., Wang, Q., Wang, P., Palpanas, T., Wang, W., 2023b.
+[91] Podlipnig, S., Böszörmenyi, L., 2003. A survey of web cache Dumpy:Acompactandadaptiveindexforlargedataseriescollec-
+replacementstrategies.ACMComputingSurveys(CSUR)35,374– tions.ProceedingsoftheACMonManagementofData1,1–27.
+398. [111] Weiss,Y.,Torralba,A.,Fergus,R.,2008. Spectralhashing. Ad-
+[92] Ponomarenko,A.,Malkov,Y.,Logvinov,A.,Krylov,V.,2011. Ap- vancesinneuralinformationprocessingsystems21.
+proximatenearestneighborsearchsmallworldapproach,in:Interna- [112] Whitehouse, C., Choudhury, M., Aji, A.F., 2023. Llm-
+tionalConferenceonInformationandCommunicationTechnologies powereddataaugmentationforenhancedcrosslingualperformance.
+&Applications. arXiv:2305.14288.
+[93] Pouyanfar,S.,Yang,Y.,Chen,S.C.,Shyu,M.L.,Iyengar,S.S.,2018. [113] Xie,X.,Liu,H.,Hou,W.,Huang,H.,2023.Abriefsurveyofvector
+Multimediabigdataanalytics:Asurvey. ACMComput.Surv.51. databases,in:20239thInternationalConferenceonBigDataand
+URL:https://doi.org/10.1145/3150226,doi:10.1145/3150226. InformationAnalytics(BigDIA),IEEE.pp.364–371.
+[94] Rao,T.R.,Mitra,P.,Bhatt,R.,Goswami,A.,2019. Thebigdata [114] Xu,D.,Tsang,I.W.,Zhang,Y.,Yang,J.,2018.Onlineproductquan-
+system,components,tools,andtechnologies:asurvey. Knowledge tization.IEEETransactionsonKnowledgeandDataEngineering30,
+andInformationSystems60,1165–1245. 2185–2198.
+[95] Regmi, S., Pun, C.P., 2024. Gpt semantic cache: Reducing llm [115] Xu, Q., Yang, J., Zhang, F., Pan, J., Chen, K., Shen, Y., Zhou,
+costsandlatencyviasemanticembeddingcaching. arXivpreprint A.C., Du, X., 2025a. Tribase: A vector data query engine for
+arXiv:2411.05276. reliableandlosslesspruningcompressionusingtriangleinequalities.
+[96] S,B.J.,G.,L.D.,1997. Shapeindexingusingapproximatenearest- ProceedingsoftheACMonManagementofData3,1–28.
+neighbour search in high-dimensional spaces, in: Proceedings of [116] Xu, Q., Zhang, F., Li, C., Cao, L., Chen, Z., Zhai, J., Du, X.,
+IEEEcomputersocietyconferenceoncomputervisionandpattern 2025b. Harmony:Ascalabledistributedvectordatabaseforhigh-
+recognition,pp.1000–1006. throughputapproximatenearestneighborsearch.Proceedingsofthe
+[97] Shanahan, M., 2023. Talking about large language models. ACMonManagementofData3,1–28.
+arXiv:2212.03551. [117] Y,M.,A,P.,A,L.,A.,K.,2014. Approximatenearestneighbor
+[98] Su,Y.,Sun,Y.,Zhang,M.,Wang,J.,2024. Vexless:Aserverless algorithm based on navigable small world graphs. Information
+vectordatamanagementsystemusingcloudfunctions.Proceedings Systems45,61–68.
+oftheACMonManagementofData2,1–26. [118] Zhang,Y.,Power,R.,Zhou,S.,Sovran,Y.,Aguilera,M.K.,Li,J.,
+[99] Sun,P.,Simcha,D.,Dopson,D.,Guo,R.,Kumar,S.,2023.Soar:im- 2013.Transactionchains:achievingserializabilitywithlowlatency
+provedindexingforapproximatenearestneighborsearch.Advances ingeo-distributedstoragesystems,in:ProceedingsoftheTwenty-
+inNeuralInformationProcessingSystems36,3189–3204. FourthACMSymposiumonOperatingSystemsPrinciples,pp.276–
+[100] Taft,R.,Sharif,I.,Matei,A.,VanBenschoten,N.,Lewis,J.,Grieger, 291.
+T.,Niemi,K.,Woods,A.,Birzin,A.,Poss,R.,etal.,2020. Cock- [119] Zhang,Y.,Wu,J.,Cai,J.,2016. Compactrepresentationofhigh-
+roachdb:Theresilientgeo-distributedsqldatabase,in:Proceedings dimensional feature vectors for large-scale image recognition and
+ofthe2020ACMSIGMODinternationalconferenceonmanage- retrieval. IEEETransactionsonImageProcessing25,2407–2419.
+mentofdata,pp.1493–1509. doi:10.1109/TIP.2016.2549360.
+Ma et al.: PreprintsubmittedtoElsevier Page 24 of 25
+
+[[page:25]]
+Survey on Vector Database
+[120] Zhao,G.,Xuan,K.,Taniar,D.,Srinivasan,B.,2008. Incremental
+k-nearest-neighborsearchonroadnetworks. JournalofIntercon-
+nectionNetworks9,455–470.
+[121] Zhao,W.X.,Zhou,K.,Li,J.,Tang,T.,Wang,X.,Hou,Y.,Min,Y.,
+Zhang, B.,Zhang, J.,Dong, Z.,et al.,2023a. Asurveyof large
+languagemodels.arXivpreprintarXiv:2303.18223.
+[122] Zhao,X.,Tian,Y.,Huang,K.,Zheng,B.,Zhou,X.,2023b.Towards
+efficientindexconstructionandapproximatenearestneighborsearch
+inhigh-dimensionalspaces.ProceedingsoftheVLDBEndowment
+16,1979–1991.
+[123] Zhao,Z.,Fan,W.,Li,J.,Liu,Y.,Mei,X.,Wang,Y.,Wen,Z.,Wang,
+F.,Zhao,X.,Tang,J.,etal.,2024.Recommendersystemsintheera
+oflargelanguagemodels(llms). IEEETransactionsonKnowledge
+andDataEngineering.
+[124] Zhou,X.,Li,G.,Sun,Z.,Liu,Z.,Chen,W.,Wu,J.,Liu,J.,Feng,
+R.,Zeng,G.,2023. D-bot:Databasediagnosissystemusinglarge
+languagemodels.arXivpreprintarXiv:2312.01454.
+[125] Zhou,X.,Sun,Z.,Li,G.,2024.Db-gpt:Largelanguagemodelmeets
+database.DataScienceandEngineering9,102–111.
+Ma et al.: PreprintsubmittedtoElsevier Page 25 of 25

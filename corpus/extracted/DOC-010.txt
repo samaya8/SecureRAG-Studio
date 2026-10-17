@@ -1,0 +1,2253 @@
+[[page:1]]
+THE FAISS LIBRARY
+MatthijsDouze AlexandrGuzhva ChengqiDeng
+FAIR,Meta Zilliz DeepSeek
+JeffJohnson GergelySzilvasy Pierre-EmmanuelMazare´
+FAIR,Meta FAIR,Meta FAIR,Meta
+MariaLomeli LucasHosseini Herve´ Je´gou
+FAIR,Meta SkipLabs FAIR,Meta
+Abstract
+Similarity search is also popular for tasks where
+end-to-end learning would not be cost-efficient. For
+Vectordatabasestypicallymanagelargecollectionsof example, a k-nearest-neighbor classifier is more effi-
+embedding vectors. As AI applications are growing cient to upgrade with new training samples than a
+rapidly, the number of embeddings that need to be classificationneuralnet. Thisexplainswhytheusage
+stored and indexed is increasing. The Faiss library is of industrial database management systems (DBMS),
+dedicatedtovectorsimilaritysearch,acorefunction- that offer a vector storage and search functionality,
+alityofvectordatabases. Faissisatoolkitofindexing has increased in the last years. These DBMS are at
+methodsandrelatedprimitivesusedtosearch,cluster, thejunctionoftraditionaldatabasesandApproximate
+compressandtransformvectors.Thispaperdescribes Nearest Neighbor Search (ANNS) algorithms. Until
+the trade-offs in vector search and the design princi- recently,thelatterweremostlyconsideredforspecific
+ples of Faiss in terms of structure, approach to opti- use-casesorinresearch.
+mizationandinterfacing. Webenchmarkkeyfeatures Fromapracticalperspective,theembeddingextrac-
+of the library and discuss a few selected use cases to tionandthevectorsearchalgorithmareboundbyan
+highlightitsbroadapplicability. “embeddingcontract”ontheembeddingdistance:
+• The embedding extractor, typically a neural net-
+work in modern systems, is trained so that dis-
+1 Introduction
+tancesbetweenembeddingsarealignedwiththe
+tasktoperform.
+Theemergenceofdeeplearninghasinducedashiftin
+• The vector index performs neighbor search
+how complex data is stored and searched, noticeably
+among the embedding vectors as accurately as
+by the development of embeddings. Embeddings are
+possible w.r.t. exact search results given the
+vector representations, typically produced by a neu-
+agreeddistancemetric.
+ral network, that map (embed) the input media item
+intoavectorspace,wherethelocalityencodesthese- Faiss is a library for ANNS. The core library is a
+manticsoftheinput. Embeddingsareextractedfrom collectionofC++sourcefileswithoutexternaldepen-
+various forms of media: words [59, 10], text [24, 40], dencies. FaissalsoprovidesacomprehensivePython
+images [15, 69], users and items for recommenda- wrapper for its C++ core. It is designed to be used
+tion [65]. They can even encode object relations, for bothfromsimplescriptsandasabuildingblockofa
+instance multi-modal text-image or text-audio rela- DBMS.Incontrastwithotherlibrariesthatfocusona
+tions[31,70]. single indexing method, Faiss is a toolbox that con-
+Embeddings are employed as an intermediate rep- tains a variety of indexing methods that commonly
+resentationforfurtherprocessing,e.g.self-supervised involve a chain of components (preprocessing, com-
+image embeddings are input to shallow supervised pression, non-exhaustive search, etc.). In this paper,
+image classifiers [14, 15]. They are also leveraged as we show that there exists a choice between a dozen
+apretexttaskforself-supervision[18]. Infact,embed- indextypes,andtheoptimaloneusuallydependson
+dings are a compact intermediate representation that theproblem’sconstraints.
+canbere-usedforseveralpurposes. To summarize what Faiss is not: Faiss does not ex-
+Inthispaper,weconsiderembeddingsuseddirectly tractfeatures–itonlyindexesembeddingsthathave
+tocomparemediaitems. Theembeddingextractoris beenextractedbyadifferentmechanism; Faissisnot
+designedsothatthedistancebetweenembeddingsre- a service – it only provides functions that are run as
+flects the similarity between their corresponding me- partofthecallingprocessonthelocalmachine;Faiss
+dia. As a result, conducting neighborhood search in isnotadatabase–itdoesnotprovideconcurrentwrite
+this vector space offers a direct implementation of access,loadbalancing,sharding,transactionmanage-
+similaritysearchbetweenmediaitems. mentorqueryoptimization. Thescopeofthelibrary
+1
+5202
+tcO
+32
+]GL.sc[
+4v18280.1042:viXra
+
+[[page:2]]
+is intentionally limited to ANNS algorithmic imple- that discusses numerous research works related to
+mentation. quantization-basedcompactcodes.
+ThebasicstructureofFaissisanindexthatcanhave ThetermLSHcanalsorefertoindexingwithmul-
+multipleimplementationsdescribedinthispaper. An tiplepartitions,suchasE2LSH[22]. However,wedo
+index can store a number of database vectors that are not consider this scenario as the performance is gen-
+progressivelyaddedtoit. Atsearchtime,aqueryvec- erally inferior to that of learnt partitions [66]. Early
+tor is submitted to the index. The index returns the data-aware methods that proved successful on large
+databasevectorthatisclosesttothequeryvectorw.r.t. datasets include multiple partitions based on kd-tree
+the Euclidean distance. There are many variants of or hierarchical k-means [62]. They are often com-
+thisfunctionality: insteadofjustthenearestneighbor, bined with compressed-domain representation and
+k nearest neighbors are returned; instead of a fixed are especially appropriate for very large-scale set-
+numberofneighbors,onlythevectorswithinacertain tings[43,44].
+rangearereturned;batchesofvectorscanbesearched
+After the introduction of NN-descent [26], graph-
+in parallel; other metrics besides the Euclidean dis-
+based ANN algorithms have emerged as a viable
+tance are supported; the search can use either CPUs
+alternative to space partitioning methods. No-
+orGPUs.
+tably, HNSW, currently the most popular indexing
+Since its open-source release in 2017, Faiss has
+method [55] for medium-sized dataset, has been im-
+emerged as one of the most popular vector search
+plementedinHNSWlib.
+libraries, boasting 37k GitHub stars and more than
+5200 citations of its GPU implementation paper [47].
+TheFaisspackageshavebeendownloaded6Mtimes.
+Software packages. Most of the research works on
+Major vector database companies, such as Zilliz and
+vector search have been open-sourced, and some of
+Pinecone, either rely on Faiss as their core engine or
+these evolved in relatively comprehensive software
+havereimplementedFaissalgorithms.
+packages for vector search. For instance, FLANN in-
+This paper exposes the design principles of Faiss.
+cludes several index types and a distributed imple-
+A similarity search library has to trade off between
+mentationdescribedextensivelyin[62]. Thefirstim-
+differentconstraints(Section3)usingtwomaintools:
+plementation of product quantization relied on the
+vector compression (Section 4) and non-exhaustive
+Yael library [27], that already had a few of the Faiss
+search (Section 5). We also review a few applica-
+principles: optimized primitives for clustering meth-
+tionsofFaissfortrillion-scaleindexing,textretrieval,
+ods (GMM and k-means), scripting language inter-
+datamining,andcontentmoderation(Section7). The
+face (Matlab and Python) and benchmarking opera-
+appendix discusses how Faiss is structured and en-
+tors. NMSlib, a package originally designed for text
+gineered to be flexible and usable from other tools.
+retrieval, was the first to include HNSW [11]. It also
+Throughoutthepaper,werefertofunctionsorclasses
+in the Faiss codebase1 as well as the documentation2 provides several index types. The HNSWlib library
+usingthis specific style. later became the reference implementation of HNSW
+[55]. Google’s SCANN library is a thoroughly opti-
+mized implementation of IVFPQ [44] on SIMD and
+2 Related work includes several index variants for various database
+scales. SCANN was open-sourced but the accom-
+Indexing methods. Over the past decade, a steady panying paper [36] omits to mention the engineer-
+stream of papers about indexing methods has been ingoptimizationsthatunderpinthelibrary’sremark-
+published. Faiss encompasses a broad range of algo- ablespeed. DiskANN[79]isMicrosoft’sfoundational
+rithms,cateringtoadiversespectrumofusecases. graph-based vector search library. It was originally
+One of the most popular approaches in the indus- builttoleveragehybridRAM/flashmemory,butnow
+tryistoemployLocalitySensitiveHashing(LSH)asa offers a RAM-only version and was later extended
+waytocompressembeddingsintocompactcodes. In to perform efficient updates [78], out-of-distribution
+particular,thecosinesketch[16]producesbinaryvec- search[42]andfilteredsearch[34].
+tors such that the Hamming distance is an estimator Faiss was open-sourced concurrently with a pub-
+of the cosine similarity between the original embed- lication [47] that details the GPU implementation of
+dings.Thecompactnessofthesesketchesenablesstor- several index types. The present paper complements
+ingandsearchingverylargedatabasesofmediacon- this previous work by describing the library as a
+tent[54],withouttherequirementtostoretheoriginal whole.
+embeddings. We refer the reader to the early survey
+Concurrently, various software libraries from the
+by[91]forresearchonbinarycodes.
+database world were extended or developed to do
+Since the original work introducing product
+vector search. Milvus [89] uses its Knowhere li-
+quantization search [44], quantization-based ANN
+brary,whichreliesonFaissasoneofitscoreengines.
+has emerged as a powerful alternative to binary
+Pinecone[12]initiallyreliedonFaiss,althoughtheen-
+codes [90]. We refer the reader to the survey by [58]
+gine was later rewritten in Rust. Weaviate [86] is a
+1https://github.com/facebookresearch/faiss compositeretrievalenginethatincludesvectorsearch
+2https://faiss.ai/ amongothermethods.
+2
+
+[[page:3]]
+Theoretical guarantees. Several approximate algo- Table1:Commonnotationsusedthroughoutthepaper.
+rithms were inspired by the Johnson-Lindenstrauss
+lemma, which stipulates that one can embed a set Notation Meaning
+of high-dimensional points into a lower-dimensional d vectordimension
+space while almost preserving the distances. For in- N numberofvectors
+stance,undercertainassumptionsaboutthedatadis- q ∈Rd queryvector
+tribution,LSHalgorithmsbasedonrandompartition- x ∈Rd ithdatabasevector
+i
+ing(e.g. projection)providestatisticalguaranteesfor k numberofrequestedresults
+the range search problem. As this objective is only ε∈R+ radiusforrangesearch
+a proxy to the problem of nearest neighbor search, K numberofcentroidsforquantization
+therearenoformalguaranteesw.r.t. anymetricssuch M numberofsub-quantizers
+as nearest-neighbor recall. In practice, algorithms
+based on random partitioning are significantly out-
+performed by data-aware partitioning [66, 2]. Simi-
+domlyfromthesamedistribution: wedonotaddress
+larly,graph-basedalgorithmsaredifficulttocompare
+out-of-distributiondata[42,8]inthiswork.
+from a theoretical perspective if the data distribution
+isunknown.
+Techniques based on vector compression, either 3 Performance axes of a vector
+with binary sketches or quantization, often corre-
+search library
+spond to estimators of the target distance. For some
+of these methods, the variance of the estimator can
+Vector search is a well-defined, unambiguous oper-
+be computed in closed form [16, 44], characterizing
+ation. In its simplest formulation, given a set of
+the distance estimation error. Again, the quality of
+databasevectors{x ,i=1..N}⊂Rdandaqueryvec-
+theestimatorisonlyaproxyfortheactualk-nearest- i
+torq ∈Rd,itcomputes
+neighborproblem.
+Consideringthesefactorsandtheimportanceofex-
+n=argmin∥q−x ∥. (1)
+i
+ecutionspeed, thequalityofANNsearchistypically
+i=1..N
+evaluated by experimental comparisons on publicly
+availablebenchmarks. The minimum can be computed with a direct algo-
+rithm by iterating over all database vectors: this is
+brute force search. A slightly more general and com-
+Benchmarks and competitions. The leading plex operation is to compute the k nearest neighbors
+benchmark for million-scale datasets is ANN- ofq:
+benchmarks [3]. It compares about 50 implemen-
+tations of ANNS. The big-ANN [76] challenge (n ,...,n ,∗,...,∗)=argsort∥q−x ∥, (2)
+1 k i
+introduced large-scale settings, with 6 datasets con- i=1..N
+taining 1 billion vectors each. Faiss was used as a
+where argsort returns the indices of the array to sort
+baseline for the challenge and multiple submissions
+itbyincreasingdistancesand∗meansthatanoutput
+were derived from it. The 2023 edition of the chal-
+isignored. ThisiswhatthesearchmethodofaFaiss
+lengeisatasmallerscale(10Mvectors)butintroduces
+index returns. A related operation is to find all the
+more complex tasks, including a filtered track where
+elementsthatarewithinsomeεdistancetothequery:
+Faissservedasabaselinemethod[75].
+R={n=1..N s.t.∥q−x ∥≤ε}, (3)
+n
+Datasets. Early datasets are based on keypoint fea-
+whichiscomputedwiththerange searchmethod.
+tures like SIFT [53] used in image matching. We use
+BIGANN[46], adatasetof128-dimensionalSIFTfea-
+tures. Later,whenglobalimagedescriptorsproduced Distance measures. In the equations above, we
+by neural nets became popular, the Deep1B dataset leave the definition of the distance undefined. Faiss
+wasreleased[6], with96-dimensionalimagefeatures aimsatsupportingarangeofdistancemetrics,butin
+extractedwithGoogleLeNet[82]. Forthispaper, we order to avoid overloading the library, it leaves out
+introduceadatasetof768-dimensionalContrievertext metricsthatareequivalentuptoamonotonoustrans-
+embeddings[40]thatarecomparedusinginnerprod- formationofdistances(likeEuclideanvs.squaredEu-
+uct similarity. The embeddings are computed with clidean)oruptoapreprocessingoftheinputvectors
+EnglishWikipediapassages. Thehigherdimensionof (like Mahalanobis or cosine, see below). The full list
+these embeddings is representative of contemporary ofmetricsisinAppendixA.6.
+applications. ThemostcommonlyuseddistancesinFaissarethe
+Each dataset has 10k query vectors and 20M to L2distance, thecosinesimilarityandtheinnerprod-
+350M training vectors. We indicate the size of the uctsimilarity(forthelattertwo,theargminshouldbe
+databaseexplicitly,forexample“Deep1M”meansthe replacedwithanargmax). Thesemeasureshaveuse-
+databasecontainsthe1MfirstvectorsofDeep1B.The fulanalyticalproperties: forexample,theyareinvari-
+training,databaseandqueryvectorsaresampledran- antunderd-dimensionalrotations.
+3
+
+[[page:4]]
+In terms of applications, the Euclidean distance is Accuracy metrics. In ANNS the accuracy3 is mea-
+thedefaultforcomparingvectors[53]. Whenvectors sured as a discrepancy with the exact search results
+are obtained by metric learning, the cosine similarity from(2)and(3).Notethatthisisanintermediategoal:
+isoftenusedtoavoidcollapsingorexplodingembed- theend-to-endaccuracydependson(1)howwellthe
+dings[23]. Maximuminnerproductsearch(MIPS)is distancemetriccorrelateswiththeitemmatchingob-
+mostoftenusedforrecommendationsystemsthatre- jectiveand(2)thequalityofANNS,whichiswhatwe
+quiretocompareuseranditemembeddings[65]. measurehere.
+These measures can be made equivalent by pre- Accuracy of k-nearest neighbor search is generally
+processing transformations on the query and/or the evaluated with “n-recall@k”, which is the fraction of
+databasevectors. Table2summarizesthepreprocess- thenground-truthnearestneighborsthatareinthek
+ing transformations mapping different measures. To first search results (with n ≤ k). Most often k=1 or
+our knowledge, some of these were already identi- n=k(inwhichcasethemeasureisa.k.a.“intersection
+fied[7,37],whileothersarenew. measure”). Whenn=k=1,therecallmeasureandin-
+Notethatvectorstransformedinthismannerhave tersection are the same, and the recall is called “ac-
+averyanisotropicdistribution[60]: theadditionaldi- curacy”. In some publications [44], recall@k means
+mensionincurredformanytransformationsisnotho- 1-recall@k, while in others [77] it corresponds to k-
+mogeneous w.r.t. other dimensions. This can make recall@k.
+indexingmoredifficult,inparticularusingproductor Forrangesearch,theexactsearchresultisobtained
+scalarquantizationmethods. SeeSection4.2formiti- by applying (3), using threshold ε. To yield result
+gations. listR(cid:98),theapproximatesearchusesa(possiblydiffer-
+ent)thresholdε′. Thus,standardretrievalmetricscan
+be computed: precision P = |R∩R(cid:98)|/|R(cid:98)| and recall
+3.1 Bruteforcesearch
+R = |R∩R(cid:98)|/|R|. Bysweepingε′ fromsmalltolarge,
+Developinganefficientimplementationofbruteforce theresultlistR(cid:98)increases,producingaprecision-recall
+searchisnottrivial[21,47]. Itrequires(1)anefficient curve. TheareaunderthePR-curveisthemeanaver-
+way of computing the distances and (2) an efficient ageprecisionscoreofrangesearch[76]. Settingε′ ̸=ε
+wayofkeepingtrackoftheksmallestdistances. is relevant when approximate vector representations
+ComputingdistancesinFaissisperformedeitherby distortthedistancemetric(moreonthisinSection4).
+directdistancecomputations, or, whenqueryvectors Forvectorencoder-decoderpairs,thestandardmet-
+areprovidedinlargeenoughbatches, usingamatrix ricisthemeansquarederror(MSE)betweentheorigi-
+multiplication decomposition [47, Equation 2]. The nalvectorandthereconstructedvector[44,4,39]. For
+correspondingFaissfunctionsareexposedinknnand anencoderC andadecoderD,theMSEis:
+knn gpuforCPUandGPU,respectively.
+Collecting the top-k smallest distances is usually MSE=E (cid:2) ∥D(C(x))−x∥2(cid:3) . (4)
+x 2
+done via a binary heap on CPU [27, section 2.1] or a
+sortingnetworkonGPU[47,63]. Forlargervaluesof
+Resourcemetrics. Theotheraxesofthetrade-offare
+k,itismoreefficienttouseareservoir: anunordered
+resultbufferofsizek′ > k thatisresizedtok whenit related to computing resources. During search, the
+search time and memory usage are the main con-
+overflows.
+straints. Ifcompressionisused,then,thememoryus-
+Faiss’s IndexFlat implements brute force search.
+age can be smaller than what is required to store the
+However, for large datasets this approach becomes
+originalvectors.
+too slow. In low dimensions, there are branch-and-
+Theindexmayneedtostoretrainingdata,whichin-
+boundmethodsthatyieldexactsearchresults. How-
+cursaconstantmemoryoverheadbeforeanyvectoris
+ever, in large dimensions they provide no speedup
+addedtotheindex. Theindexcanalsoaddper-vector
+overbruteforcesearch[93].
+memory overhead to the memory used to store each
+Besides, for some applications, small variations in
+vector. Thisisthecaseforgraphindexes,thatneedto
+distances are not significant enough to distinguish
+storegraphedgesforeachvector. Thememoryusage
+application-level positive and negative items [83].
+ismorecomplexforsettingswithhybridstoragesuch
+In these cases, approximate nearest neighbor search
+asRAM+flashorGPUmemory+RAM.
+(ANNS)becomesinteresting.
+The index building time is also a resource con-
+straint. It may be decomposed into a training time,
+3.2 Metrics for Approximate Nearest whichisindependentofthenumberofvectorsadded
+NeighborSearch totheindex,andtheadditiontimepervector.
+In distributed settings or flash-backed storage, the
+WithANNS,theuseracceptsimperfectresults,which relevant metric is the number of I/O operations
+opens the door to a new solution design space. With (IOPS), as each read operation fetches a whole page.
+exactsearch,thedatabaseisrepresentedasaplainma- Data layouts that minimize IOPs [79] are more effi-
+trix. For ANNS, the database may be preprocessed cient than small random accesses. Another possibly
+intoanindexingstructure,moresimplyreferredtoas
+anindexinthefollowing. 3Metricsinvolvedinatradeoffareindicatedinaspecificfont.
+4
+
+[[page:5]]
+Table2: Onewantstocompareaqueryvectorxandadatabasevectorygivenaparticularmetric(rows). Thetableindicateshowto
+preprocess(x,y) (cid:55)−→ (x′,y′)sothatanindexwithanothermetric(columns)returnsthenearestneighborsforthesourcemetric. Some
+casesrequireadding1or2extradimensionstotheoriginalvectors,asisdenotedbythevectorconcatenationsymbol[.;.]. Thepositive
+scalarparametersαandβarearbitraryandchosentoavoidnegativevaluesunderasquareroot.
+indexmetric→ L2 IP cos
+wantedmetric↓
+x′ =[x;−α/2;0]
+x′ =[x;−α/2]
+L2 identity y′ =[βy;β∥y∥2/α;
+y′ =[y;∥y∥2/α]
+(cid:112)
+1−β2∥y∥2−β2∥y∥4/α2]
+x′ =[x;0] x′ =[x;0]
+IP (cid:112) identity (cid:112)
+y′ =[y; α2−∥y∥2] y′ =[αy; 1−∥αy∥2]
+x′ =x/∥x∥ x′ =x/∥x∥
+cos identity
+y′ =y/∥y∥ y′ =y/∥y∥
+106
+105
+104
+103
+0.15 0.20 0.25 0.30 0.35 0.40
+Accuracy: 1-recall@1
+dnoces
+rep
+seireuq
+:deepS
+3.4 Exploringsearch-timesettings
+Tested settings
+Pareto-optimal settings
+Forafixedindex,thereareoftenoneorseveralsearch-
+Pareto front after 50 experiments
+timehyperparametersthattradeoffspeedwithaccu-
+racy. Forexample,thenprobehyperparameterforan
+IndexIVF,seeSection5. Ingeneral,wedefinehyper-
+parameters as discrete scalar values such that when
+the value is higher, the speed decreases and the ac-
+curacy increases. We can then keep only the Pareto-
+optimalsettings,definedassettingsthatarethefastest
+for a given accuracy, or equivalently, that have the
+highestaccuracyforagiventimebudget[80].
+ExploringthePareto-optimalfrontierwhenthereis
+asinglehyper-parameterconsistsinsweepingoverits
+valueswithacertainlevelofgranularity,andmeasur-
+Figure 1: Example of exploration of a parameter space with 3
+parameters (an IndexIVFPQ with polysemous codes and HNSW ingthecorrespondingspeedandaccuracy.
+coarse quantizer, running on the Deep100M dataset). The total For multiple hyperparameters, the Pareto frontier
+numberofconfigurationsis5808,butonly398experimentsarerun. canberecoveredbyexhaustivelytestingtheCartesian
+Wealsoshowthesetofoperatingpointsobtainedwithjust50ex-
+productoftheseparameters. However,thenumberof
+periments.
+settings to test grows exponentially with the number
+ofparameters.
+limitingfactoristheamountofextramemoryneeded
+Pruning the parameter space. one can leverage the
+topre-computelookuptablesusedtospeedupsearch.
+monotonous nature of the hyperparameters for effi-
+cientpruning. Wenoteatupleofnhyper-parameters
+π = (p ,...,p ) ∈ P = P ×...×P , and ≤ a partial
+1 n 1 n
+ordering on P: (p ,..,p ) ≤ (p′,..,p′ ) ⇔ ∀i,p ≤ p′.
+1 n 1 n i i
+3.3 Tradeoffs LetS(π)andA(π)bethespeedandaccuracyobtained
+with this tuple of parameters. P∗ ⊂ P is the set of
+Most often only a subset of metrics matter. For ex- Pareto-optimalsettings:
+ample,whenaverylargenumberofsearchesareper- P∗ = (cid:8) π ∈P|∄π′ ∈P s.t.(S(π′),A(π′))>(S(π),A(π)) (cid:9) .
+formedonafixedindex,theindexbuildingtimedoes
+(5)
+notmatter. Orwhenthenumberofvectorsissosmall
+Since the individual parameters have a monotonic
+thattherawdatabasefitsinRAMmultipletimes,then
+effectonspeedandaccuracy,wehave
+the memory usage does not matter. We refer to the
+metrics that we care about as the active constraints. (cid:26) S(π′)≤S(π),
+π′ ≥π ⇒ (6)
+Note that accuracy is always an active constraint be- A(π′)≥A(π).
+cause if it did not matter, returning random results
+would be sufficient (Faiss does actually provide an Thus,ifasubsetP(cid:98) ⊂P ofsettingsisalreadyevalu-
+IndexRandomusedinsomebenchmarkingtasks). ated,thefollowingupperboundsholdforanewset-
+tingπ ∈P:
+In the following sections, we consider that the ac-
+tive constraints are speed, memory usage and accu-
+S(π) ≤ S(cid:98)(π)= Inf S(π′), (7)
+racy. Assuch,wemeasurethespeedandaccuracyof
+π′∈P(cid:98)s.t.π′≤π
+several index types and hyperparameter settings un-
+A(π) ≤ A(cid:98)(π)= Inf A(π′). (8)
+derafixedmemorybudget.
+π′∈P(cid:98)s.t.π′≥π
+5
+
+[[page:6]]
+If any previous evaluation Pareto-dominates these is useful when there is also a storage constraint on
+bounds,thesettingπdoesnotneedtobeevaluated: thequeriesorforindexeswhereSDCisfastertocom-
+putethanADC.Thenaivecomputationof(10)decom-
+∃π′ ∈P(cid:98)s.t.(S(π′),A(π′))>(S(cid:98)(π),A(cid:98)(π))⇒π ∈/ P∗.
+pressesthevectors,whichhasanimpactonspeed. In
+(9) mostcases,thedistancecanbecomputedinthecom-
+Inpractice,weevaluatesettingsfromPinarandom
+presseddomain.
+order. Thepruningbecomesmoreandmoreeffective
+throughouttheprocess. Itisalsomoreeffectivewhen
+the number of parameters is larger. Figure 1 shows 4.1 Thevectorcodecs
+anexamplewith|P| = 5808combinedparameterset-
+The k-means vector quantizer (Kmeans). The ideal
+tings. Thepruningfrom(9)reducesthisto398exper-
+iments,outofwhich|P∗| = 87areoptimal. TheFaiss vectorquantizerminimizestheMSEbetweentheorig-
+OperatingPointsobjectimplementsthispruning. inalandthedecompressedvectors. Thisisformalized
+intheLloydnecessaryconditionsfortheoptimalityof
+aquantizer[52].
+3.5 Refining(IndexRefine)
+The k-means algorithm directly implements these
+One can combine a fast but inaccurate index with a
+conditions.TheKcentroidsofk-meansareanexplicit
+slower,moreaccuratesearch.[46,79,36]. Thisisdone enumerationofallpossiblevectorsthatcanberecon-
+byqueryingthefastindextoretrieveashortlistofre- structed.
+sults. The more accurate search then computes more The k-means vector quantizer is very accurate but
+accurate results only for the shortlist. This requires the memory usage and encoding complexity grow
+theaccurateindextoallowefficientrandomaccessto exponentiallywiththecodesize. Therefore, k-means
+databasevectors. Someimplementationsuseaslower isimpracticaltousebeyondroughly3-bytecodes,cor-
+storage(e.g. flash)forthesecondindex[79,81]. respondingto16Mcentroids.
+Forthefirst-levelindex,therelevantaccuracymet-
+ric is the recall at a rank equal to the shortlist size.
+Scalarquantizers. Scalarquantizersencodeeachdi-
+Thus, 1-recall@1000 can be a relevant metric, even if
+mensionofavectorindependently.
+theendapplicationdoesnotusethe1000thneighbor.
+AveryclassicalandsimplescalarquantizerisLSH
+Severalmethodsbasedonthisrefiningprincipledo
+(IndexLSH),whereeachvectorcomponentisencoded
+not use two separate indexes. Instead, they use two
+in a single bit by comparing it to a threshold. The
+ways of interpreting the same compressed vectors: a
+threshold can be fixed to 0 or trained. Faiss sup-
+fast and inaccurate decoding and a slower but more
+ports efficient SDC search of binary vectors via the
+accurate decoding [28, 29, 61, 1, 39] are based on this
+IndexBinaryobjects,seeSection4.5.
+principle. The polysemous codes method [28] is im-
+TheScalarQuantizeralsosupportsuniformquan-
+plementedinFaiss’sIndexIVFPQ.
+tizers that encode a vector component into 8, 6 or 4
+bits – referred to as SQ8, SQ6, SQ4. A scale and off-
+4 Compression levels set determine which values are reconstructed. They
+canbesetseparatelyforeachdimensiononthewhole
+Faisssupportsvariousvectorcodecs: thesearemeth- vector. The IndexRowwiseMinMax stores vectors with
+odstocompressvectorssothattheytakeuplessmem- per-vector normalizing coefficients. Lower-precision
+ory.AcompressionmethodC :Rd →{1,...,K},a.k.a. 16-bit floating point representations are also consid-
+aquantizer,convertsacontinuousmulti-dimensional eredasscalarquantizers,SQfp16andSQbf16.
+vector to an integer. This integer is equivalent to a
+bit string of code size ⌈log K⌉. The decoder D :
+{1,...,K} → Rd reconstructs 2 anapproximationofthe Multi-codebook quantizers. Faiss contains several
+multi-codebook quantization (MCQ) options. They
+vector from the integer. The decoder can only recon-
+are built from M vector quantizers that can recon-
+structafinitenumber,K,ofdistinctvectors.
+struct K distinct values each. The codes produced
+Thesearchof(1)becomesapproximate:
+by these methods are of the form (c ,...,c ) ∈
+1 M
+n=argmin∥q−D(C(x ))∥=argmin∥q−D(C )∥, (10) {1,...,K}M,i.e.eachcodeindexesoneofthequantiz-
+i i
+i=1..N i=1..N ers. The number of reconstructed vectors is KM and
+where the codes C i = C(x i ) are precomputed and
+thecodesizeisthusM⌈log
+2
+(K)⌉.
+stored in the index. This is the asymmetric distance The product quantizer (ProductQuantizer, also
+computation (ADC) [44]. The symmetric distance noted PQ) is a simple MCQ that splits the input
+computation(SDC)correspondstothecasewhenthe vector into M sub-vectors and quantizes them sepa-
+queryvectorisalsocompressed: rately [44] with a k-means quantizer. At reconstruc-
+tion time, the individual reconstructions are concate-
+n=argmin∥D(C(q))−D(C i )∥. (11) natedtoproducethefinalcode. Inthefollowing, we
+i=1..N willusethenotationPQ6x10foraproductquantizer
+MostFaissindexesperformADCasitismoreaccu- with 6 sub-vectors each encoded in 10 bits (M = 6,
+rate: no accuracy is lost on the query vectors. SDC K =210).
+6
+
+[[page:7]]
+AdditivequantizersareafamilyofMCQwherethe 4.2 Vectorpreprocessing
+reconstructions from sub-quantizers are summed up
+Applyingtransformationstoinputvectorsbeforeen-
+together. Finding the optimal encoding for a vector
+codingcanenhancetheeffectivenessofcertainquan-
+given the codebooks is NP-hard [4], so, in practice,
+tizers. Inparticular,d-dimensionalrotationsarecom-
+additivequantizersuseheuristicstofindnear-optimal
+monlyused,astheypreservecomparisonmetricslike
+codes.
+cosine,L2andinnerproduct.
+Faiss supports two types of additive quantizers.
+Scalar quantizers assign the same number of bits
+The residual quantizer (ResidualQuantizer) pro-
+per vector component. However, for distance com-
+ceeds sequentially, by encoding the difference (resid-
+parisons, ifspecificvectorcomponentshaveahigher
+ual) of the vector to encode and the one that is re-
+variance, theyhavemoreimpactonthedistances. In
+constructedbytheprevioussub-quantizers[19]. The
+other works, a variable number of bits are assigned
+localsearchquantizer(LocalSearchQuantizer)starts
+per component [71]. However, it is simpler to apply
+fromasub-optimalencodingofthevectorandlocally
+arandomrotationtotheinputvectors,whichinFaiss
+explores neighbording codes in a simulated anneal-
+canbedonewithaRandomRotationMatrix. Theran-
+ing process [56, 57]. We use notations LSQ6x10 and
+domrotationspreadsthevarianceoverallthedimen-
+RQ6x10 to refer to additive quantizers with 6 code-
+booksofsize210. sionswithoutchangingthemeasureddistances.
+An important transform is the Principal Compo-
+Faiss also supports a combination of PQ and addi-
+nent Analysis (PCA), that reduces the number of di-
+tive quantizer, ProductResidualQuantizer. In that
+mensionsdoftheinputvectorstoauser-specifiedd′.
+case,thevectorissplitinsub-vectorsthatareencoded
+This operation (PCAMatrix) is the orthogonal linear
+independentlywithadditivequantizers[5].Thecodes
+mapping that best preserves the variance of the in-
+fromthesub-quantizersareconcatenated. Weusethe
+notationPRQ2x6x10toindicatethatvectorsaresplit putdistribution. ItisoftenbeneficialtoapplyPCAto
+in2andencodedindependentlywithRQ6x10,yield- largeinputvectorsbeforequantizingthemask-means
+ingatotalof12codebooksofsize210. quantizersaremorelikelyto“fall”inlocalminimain
+high-dimensionalspaces[51,45].
+TheOPQtransformation[33]isarotationofthein-
+Hierarchyofquantizers. Althoughthisisnotbyde-
+put space that decorrelates the distribution of each
+sign,thereisastrictorderingbetweenthequantizers
+sub-vector of a product quantizer4. This makes PQ
+describedbefore. Thismeansthatquantizeri+1can
+more accurate in the case where the variance of the
+havethesamesetofreproductionvaluesasquantizer
+dataisconcentratedonafewcomponents. TheFaiss
+i: itismoreflexibleandmoredataadaptive. Thehier-
+implementationOPQMatrixcombinesOPQwithadi-
+archyofquantizersis:
+mensionality reduction. The ITQ transformation [35]
+1. thebinaryrepresentationwithbits+1and-1can similarlyrotatestheinputspacepriortobinarization
+berepresentedasascalarquantizerwith1bitper
+(ITQMatrix).
+component;
+4.3 Faissadditivequantizationoptions
+2. the scalar quantizer is a product quantizer with
+1 dimension per sub-vector and uniform per-
+Additive quantizers exist in two main variants: the
+dimensionquantizer;
+residual quantizer and local search quantizer. They
+are more complex than most quantizers because the
+3. theproductquantizerisaproduct-additivequan-
+index building time must be taken into account. In
+tizer where the additive quantizer has a single
+fact,theaccuracyofanadditivequantizerofacertain
+level;
+sizecanalwaysbeincreasedatthecostofanincreased
+4. the product additive quantizer is an additive encodingtime(andtrainingtime).
+quantizer where within each codebook all com- Additive quantizers are based on M codebooks
+ponentsoutsideonesub-vectoraresetto0[4]; T 1 ,...T M of size K. The decoding of code C(x) =
+(c ,...,c )is
+1 M
+5. the additive quantizer is the general case where
+the codebook entries correspond to all possi- x′ =D(C(x))=T [c ]+...+T [c ]. (12)
+1 1 M M
+blereconstructionsobtainedbyaddingelements
+fromthesubquantizers. Thus,decodingisunambiguous. However,thereis
+nopracticalwaytoencodevectorsoptimally,letalone
+The implications of this hierarchy are (1) the de-
+trainthecodebooks. Enumeratingallpossibleencod-
+greesoffreedomforthereproductionvaluesofquan-
+ingsisofexponentialcomplexityinM.
+tizer i+1 are larger than for i, so it is more accurate
+(2)quantizeri+1hasahighercapacitysoitconsumes
+moreresourcesintermsoftrainingtimeandstorage The residual quantizer (RQ). RQ encodes a vector
+overhead than i. In practice, the product quantizer x sequentially. At stage m, RQ picks the entry that
+oftenoffersagoodtrade-off, whichexplainsitswide
+4In Faiss terms, OPQ and ITQ are preprocessings. The actual
+adoption. ThecorrespondingFaissQuantizerobjects
+quantizationisperformedbyasubsequentproductquantizerorbi-
+arelistedinAppendixA.7. narizationstep.
+7
+
+[[page:8]]
+102
+101
+0.16 0.18 0.20 0.22 0.24 0.26 0.28 0.30 0.32
+MSE
+)sdaerht
+23
+,srotcev
+M1
+rof
+s( emit
+gnidocne
+Deep1M encoded to 8 bytes per vector
+32 (P)RQ
+(P)RQ with LUT
+(P)LSQ
+(P)LSQ on GPU
+10x6 16
+5x12
+6x10 103
+8x8
+8 2x2x12
+2x3x10
+2x4x8
+4 2x5x6 3x2x10
+2 102
+1
+0.80 0.85 0.90 0.95 1.00 1.05 1.10
+MSE
+)sdaerht
+23
+,srotcev
+M1
+rof
+s( emit
+gnidocne
+Contriever1M encoded to 64 bytes per vector
+(P)RQ
+(P)RQ with LUT 32
+(P)LSQ
+(P)LSQ on GPU
+42x12
+16 51x10
+64x8
+2x21x12
+8 2x25x10
+2x32x8
+4 3x14x12
+3x17x10 2 4x10x12
+4x12x10
+1
+Figure2:Comparisonofadditivequantizersintermsofencodingtimevs.accuracy(MSE).Lowervaluesarebetterforboth.Weconsider
+twodifferentregimes:Deep1M(low-dimensional)to8-bytescodesandContriever1M(highdimensional)to64-bytecodes.ForsomeRQ
+variants,weindicatethebeamsizesettingatwhichthattrade-offwasobtained.
+best reconstructs the residual of x w.r.t. the previous Compressed-domain search. The distances are
+encodingsteps: computedwithoutdecompressingthestoredvectors.
+It is acceptable to perform pre-computations on
+(cid:13) (cid:13)m (cid:88) −1 (cid:13) (cid:13) 2 the query vector q because the cost of these pre-
+c m =argmin(cid:13) (cid:13) T i [c i ]+T m [j]−x(cid:13) (cid:13) . (13) computations is amortized over many query-to-code
+j=1..K (cid:13) i=1 (cid:13) distancecomparisons.
+Additivequantizerinnerproductscanbecomputed
+This greedy approach tends to get trapped in local
+inthecompresseddomain:
+minima. As a mitigation, the encoder maintains a
+beam of max beam size of possible codes and picks M M
+(cid:88) (cid:88)
+the best code at stage M. This parameter adjusts the ⟨q,x′⟩= ⟨T m [c m ],q⟩= LUT m [c m ]. (14)
+trade-offbetweenencodingtimeandaccuracy. m=1 m=1
+To speed up the encoding, the norm of (13) can be
+The lookup tables LUT are computed when a
+m
+decomposedintothesumof:
+query vector comes in, similar to product quantizer
+search[44].
+• ∥T [j]∥2isprecomputedandstored;
+m This decomposition does not work to compute L2
+distances. Asaworkaround,Faissusesthedecompo-
+(cid:13) (cid:13)2
+• (cid:13)(cid:80)m−1T [c ]−x(cid:13) is the encoding error of the sition[4]
+(cid:13) i=1 i i (cid:13)
+previousstepm−1;
+∥q−x′∥2 =∥q∥2+∥x′∥2−2⟨q,x′⟩. (15)
+• −2⟨T m [j],x⟩ is computed on entry to the encod- Thus, the term ∥x′∥2 must be available at search
+ing (it is the only computation complexity that
+time. Using the AdditiveQuantizer.search type
+dependsond);
+configuration, it can be appended in the stored
+code (ST norm float32), possibly compressed
+• 2 (cid:80)m ℓ= − 1 1⟨T m [j],T ℓ [c ℓ ]⟩isalsoprecomputed. (ST norm qint8, ST norm qint4,...). It can also be
+computedonthefly(ST norm from LUT)with
+Thisdecompositionisusedwhenuse beam LUTisset.
+ItisinterestingonlyifdislargeandwhenM issmall M m−1 M
+(cid:88) (cid:88) (cid:88)
+becausethestorageandcomputerequirementsofthe ∥x′∥2 =2 ⟨T m [c m ],T ℓ [c ℓ ]⟩+ ∥T m [c m ]∥2.
+lasttermgrowquadraticallywithM. m=1 ℓ=1 m=1
+(16)
+There, the norms and dot products are stored in the
+The local search quantizer (LSQ). At encoding same lookup tables as the one used for beam search.
+time, LSQ starts from a suboptimal encoding of the Therefore,ittradesoffsearchtimeformemoryover-
+vector and proceeds with a simulated annealing op- headtostorecodes.
+timization to refine the codes. At each optimization Figure 2 shows the trade-off between encoding
+step, LSQ randomly flips codes and then uses Iter- time and MSE. Given a code size, it is more accu-
+atedConditionalMode(ICM)tooptimizethenewen- rate to use a smaller number of sub-quantizers M
+coding. Thenumberofoptimizationstepsissetwith and a higher K. GPU encoding for LSQ does not
+encode ils iters. The LSQ codebooks are trained helpsystematically. TheLUT-basedencodingofRQis
+via an expectation-maximization procedure (similar interesing for RQ/PRQ quantization when the beam
+tok-means). size is larger. In the 64-byte regime, we observe that
+8
+
+[[page:9]]
+Deep1M Contriever1M
+100
+101
+102
+103
+104
+105
+106
+107
+8 16 32 64 128 256
+bytes per code
+ESM
+LSQ5x12
+100
+RQ10x12
+PRQ2x8x12
+RQ21x12
+PQ2x14,PQ32x12 SQ
+PQ RQ42x12
+RQ
+LSQ PRQ16x4x10
+PLSQ 101
+PRQ PRQ32x4x8
+2-level PQ
+SQfp16
+8 16 32 64 128 256 512
+bytes per code
+ESM
+LSQ5x12
+LSQ12x10
+PRQ2x8x12
+RQ21x12
+RQ42x12
+SQ PRQ2x32x12
+PQ
+RQ PRQ2x42x12
+LSQ PQ128x12
+PLSQ
+PRQ PRQ32x8x8
+2-level PQ SQ4
+Figure3: Accuracyvs. codesizetrade-offfordifferentcodecsontheDeep1MandContriever1Mdatasets. WeshowPareto-optimal
+variantswithlargerdotsandindicatethequantizerintextforsomeofthem.NotethatcontrievervectorscanbeencodedtoMSE=2·10−4
+in768byteswithSQ8(thatsettingiswidelyout-of-rangefortheplot).
+LSQisnotcompetitivewithRQ.PLSQandPRQpro- The simplest IndexBinaryFlat index performs ex-
+gressively become more competitive for larger mem- haustive search. Three options are offered for non-
+ory budgets. They are also faster, since they operate exhaustivesearch:
+onsmallervectors.
+• IndexBinaryIVF is a binary counterpart for the
+inverted-listIndexIVFindexdescribedin5.1.
+4.4 Vectorcompressionbenchmark
+• IndexBinaryHNSW is a binary counterpart for the
+Figure 3 shows the trade-off between code size and hierarchical graph-based IndexHNSW index de-
+accuracy for many variants of the codecs. Addi- scribedin5.2.
+tive quantizers are the best options for small code
+sizes. For larger code sizes, it is beneficial to inde- • IndexBinaryHash uses prefix vectors as hashes
+pendently encode several sub-vectors with product- to cluster the database (rather than spheroids as
+additivequantizers.LSQismoreaccuratethanRQfor withinvertedlists),andsearchesonlytheclusters
+small codes, but does not scale well to longer codes. withclosestprefixes.
+Note that product quantizers are a bit less accurate
+Finally, theIndexBinaryFromFloat is provided for
+than additive quantizers, but given their low encod-
+convenience. Itwrapsanarbitraryindexandoffersa
+ingtimetheyremainanattractiveoption. Thescalar
+binaryvectorinterfaceforitsoperations.
+quantizers perform well for very long codes and are
+evenfaster.The2-levelPQoptionsarewhatanIVFPQ
+index uses as encoding: a first-level coarse quantizer 5 Non-exhaustive search
+and a second level refinement of the residual (more
+aboutthisinSection5.1). Non-exhaustive search is the cornerstone of fast
+search implementations for datasets larger than
+4.5 Binaryindexes around N=10k vectors. In that case, the aim of the
+indexing method is to quickly focus on a subset of
+Binaryquantizationwithsymmetricdistancecompu- database vectors that are most likely to contain the
+tationsisapatternthathasbeencommonlyused[91, searchresults.
+13]. Inthissetup,distancesarecomputedinthecom- A method to do this is Locality Sensitive Hashing
+pressed domain as Hamming distances. (11) reduces (LSH). It amounts to projecting the vectors on a ran-
+to: dom direction [22]. The offsets on that direction are
+n=argmin∥C(q)−C i ∥. (17) thendiscretizedintobucketswherethedatabasevec-
+i=1..N
+torsarestored. Atsearchtime,onlythenearestbuck-
+whereC(q),C i ∈ {0,1}d. Hammingdistancesarein- etstothequeryvector’sprojectionarevisited.Inprac-
+tegersin{0..d}. Althoughtheyarecrudeapproxima- tice,severalprojectiondirectionsareneededtomakeit
+tionsforcontinuousdomaindistances,theyarefastto accurate, at the cost of search time and memory us-
+compute,donotrequireanyspecificcontext,andare age. A fundamental drawback of this method is that
+easytocalibrateinpractice. itisnotdata-adaptive,althoughsomeimprovements
+The IndexBinary indexes support addition and arepossible[66].
+searchdirectlyfrombinaryvectors. Theyofferacom- An alternative way of pruning the search space is
+pact representation and leverage optimized instruc- tousetree-basedindexing. Inthatcase,thedatasetis
+tionsfordistancecomputations. stored in the leaves of a tree [62]. When querying a
+9
+
+[[page:10]]
+vector, the search starts at the root node. At each in-
+ternalnode,thesearchdescendsintooneofthechild
+nodesdependingonadecisionrule.Thedecisionrule 5
+depends on how the tree was built: for a KD-tree it
+is the position w.r.t. a hyperplane, for a hierarchical
+k-means,itistheproximitytoacentroid. 2
+LSH and tree-based methods both aim to extend
+classical database search structures to vector search,
+1
+because they have a favorable complexity (constant
+orlogarithmicinN). However,thesemethodsdonot
+0.5
+scalewellfordimensionsabove10.
+Faiss implements two non-exhaustive search ap-
+proaches that operate at different memory vs. speed
+0.2
+1M 2M 5M 10M 20M 50M
+trade-offs: invertedfileandgraph-based.
+database size
+5.1 Invertedfiles
+IVFindexingisatechniquethatclustersthedatabase
+vectors at indexing time. This clustering uses a vec-
+tor quantizer (the coarse quantizer) that outputs K
+IVF
+distinct indices (the nlist field of the IndexIVF ob-
+ject). The coarse quantizer’s K reproduction val-
+IVF
+ues are called centroids. The vectors of each cluster
+(possiblycompressed)arestoredcontiguouslyintoin-
+verted lists, forming an inverted file (IVF). At search
+time, only a subset of P clusters are visited (a.k.a.
+IVF
+nprobe). The subset is formed by searching the P
+IVF
+nearestcentroids,asin(2).
+Settingthenumberoflists. TheK parameteris
+IVF
+central. In the simplest case, when P is fixed, the
+IVF
+coarse quantizer is exhaustive, the inverted lists con-
+tain uncompressed vectors, and the inverted lists are
+allthesamesize,thenthenumberofdistancecompu-
+tationsis
+N =K +P ×N/K (18)
+distances IVF IVF IVF
+√
+reaching a minimum when K = P N. This
+IVF IVF
+yields the usual recommendation to set P propor-
+√ IVF
+tionalto N.
+In practice, this is just a rough approximation be-
+cause(1)theP hastoincreasewiththenumberof
+IVF
+listsinordertokeepafixedaccuracy(2)theinverted
+lists sizes are not balanced (3) often the coarse quan-
+tizer is not exhaustive itself, so the quantization uses
+fewer than K distance computations, for example
+IVF
+itiscommontouseanon-exhaustiveHNSWindexto
+performthecoarsequantization.
+The imbalance factor is the relative variance of in-
+verted list sizes [84]. At search time, if the inverted
+lists all have the same length, this factor is 1. If they
+areunbalanced,theexpectednumberofdistancecom-
+putationsismultipliedbythisfactor.
+Figure 4 shows the optimal settings of K for IVF
+various database sizes. For a small K = 4096, IVF
+the coarse quantization runtime is negligible and the
+searchtimeincreaseslinearlywiththedatabasesize.
+Onlargerdatasets,itisbeneficialtoincreaseK . As √ IVF
+in (18), the ratio K / N is roughly 15 to 20. Note
+IVF
+that this ratio depends on the data distribution and
+)sdaerht
+46
+,seireuq
+k01
+rof
+s(
+emit
+hcraes
+target recall 0.9
+KIVF=4096 KIVF=65536
+KIVF=8192 KIVF=131072
+KIVF=16384 KIVF=262144
+KIVF=32768 scaling model
+18.5
+14.7 37.1
+20.7 29.3
+20.7
+14.7
+14.7
+5.8
+4.1
+Figure4: SearchtimeasafunctionofthedatabasesizeN forBi-
+gANN1BwithdifferentKIVFsettings. ThePIVFissetsothatthe
+1-recall@1is90%.Thefulllinesindicatethatthecoarsequantizeris
+exact,thedashedlinesrelyonaHNSWcoarsequantizer.Forsome
+√
+settingweindicatetheratioKIVF/ N
+the target accuracy. Interestingly, in a regime where
+K is larger than the optimal setting for N (e.g.
+IVF
+K = 218 and N =5M), the P needed to reach
+IVF IVF
+thetargetaccuracydecreaseswiththedatasetsize,and
+so does the search time. This is because when K IVF
+isfixedandN increases,foragivenqueryvector,the
+nearest database vector is either the same or a new
+onethatiscloser, soitismorelikelytobefoundina
+quantizationclusternearertothequery.
+With a faster non-exhaustive coarse quantizer (e.g.
+HNSW) it is even more useful to increase K for
+IVF
+larger databases, as the coarse quantization becomes
+relatively cheap. At the limit, when K = N,
+IVF
+then all the work is done by the coarse quantizer. In
+thisscenario,thelimitingfactorbecomesthememory
+overheadofthecoarsequantizer.
+Byfittingamodeloftheformt = t Nα tothetim-
+0
+ings of the fastest index in Figure 4, we can derive a
+scalingrulefortheIVFindexes:
+targetrecall@1 0.5 0.75 0.9 0.99
+powerα 0.29 0.30 0.34 0.45
+Thus,withthismodel,thesearchtimeincreasesfaster
+for higher accuracy targets, but α < 0.5, so the run-
+√
+time dependence on the database size is below N.
+Thisempiricalcomplexityanalysishasbeenusedbe-
+foreforgraph-basedindices[92].
+Encoding residuals. In general, it is more accurate
+tocompresstheresidualsofthedatabasevectorsw.r.t.
+the centroids [44, Eq. (28)]. This is either because
+the norm of the residuals is lower than that of the
+original vectors, or because residual encoding is a
+waytotakeintoaccounta-prioriinformationfromthe
+coarse quantizer. In Faiss, this is controlled via the
+IndexIVF.by residualflag,whichissettotruebyde-
+fault.
+Figure5showsthatencodingresidualsisbeneficial
+for shorter codes. For larger codes, the contribution
+10
+
+[[page:11]]
+4QP 6QP 8QP
+01x8QP
+21QP
+01x21QP 01x61QP
+42QP
+01x42QP 01x23QP
+84QP
+01x84QP 21x84QP
+0.8
+0.6
+0.4
+0.2
+0.0
+4 8 16 32 64 128
+code size (bytes)
+0003
+<
+sidn
+rof
+1
+@
+llacer
+KIVF=1024, direct encoding
+KIVF=1024, encode residuals 104
+KIVF=16384, direct encoding
+KIVF=16384, encode residuals
+103
+102
+0.4 0.5 0.6 0.7 0.8 0.9 1.0
+1-recall@1
+Figure5:ComparingIVFindexeswithandwithoutresidualencod-
+ingforKIVF ∈ {210,214}ontheDeep1Mdataset(d=96dimen-
+sions), with different product quantization settings. We measure
+therecallthatcanbeachievedwithin3000distancecomparisons.
+of the residual is less important. Indeed, as the orig-
+inal data is 96-dimensional, it can be compressed to
+64bytesrelativelyaccurately. Notethatusinghigher
+K alsoimprovestheaccuracyofthequantizerwith
+IVF
+residual encoding. From a pure encoding point of
+view,theadditionalbitsofinformationbroughtbythe
+coarsequantizer(log (K ) = 10or14)improvethe
+2 IVF
+accuracy more when used in this residual encoding
+thaniftheywouldaddedtoincreasethesizeofaPQ.
+Spherical clustering for inner product search. Ef-
+ficient indexing for maximum inner product search
+(MIPS)facesmultipleissues:thedistributionofquery
+vectors is often different from the database vector
+distribution, most notably in recommendation sys-
+tems[65];theMIPSdatasetsarediverse,analgorithm
+thatobtainsagoodperformanceonsomedatasetwill
+performbadlyonanother. Besides,[60]showthatus-
+ing the preprocessing formulas in Section 3 is a sub-
+optimalwayofindexingforMIPS.
+Several specialized clustering and indexing meth-
+ods were developed for MIPS [36, 60]. Instead,
+Faiss implements a modification of k-means cluster-
+ing,sphericalk-means[25],whichnormalizestheIVF
+centroids at each iteration. One of the MIPS issues is
+duetodatabasevectorsofverydifferentnorms(when
+theyarenormalized,MIPSisequivalenttoL2search).
+High-normcentroids“attract”thedatabasevectorsin
+their clusters, which increases the imbalance factor.
+Sphericalk-meansisdesignedtoavoidthisissue.
+Figure6showsthatfortheContrieverMIPSdataset,
+theimbalancefactorishigh. ItisreducedbyusingIP
+assignmentinsteadofL2,andevenmorewithspheri-
+calk-means.
+Big batch search. A common use case for ANNS
+is search with very large query batches. This ap-
+pears for applications such as large-scale data dedu-
+plication. In this case, rather than loading an entire
+SPQ
+KIVF=1024, default: imbalance=2.23
+KIVF=16384, default: imbalance=3.13
+KIVF=1024, IP assignment: imbalance=1.16
+KIVF=16384, IP assignment: imbalance=2.17
+KIVF=1024, spherical: imbalance=1.12
+KIVF=16384, spherical: imbalance=1.39
+Figure6: Precisionvs. speedtrade-offfortheMIPScontriever1M
+dataset.Thecomparedsettingsarewhetherthecoarsequantizeras-
+signementisdoneusingL2distance(default)orIPassignmentand
+whetherthek-meansclusteringdoesanormalizationateachiter-
+ation(spherical,IPandL2assignmentareequivalentinthatcase).
+Theimbalancefactorsareindicatedforeachsetting.
+index in memory and processing queries one small
+batch at a time, it can be more memory-efficient to
+loadonlythequantizer,quantizethequeries,andthen
+iterate over the index by loading it one chunk at a
+time. Big-batchsearchisimplementedinthemodule
+contrib.big batch search.
+5.2 Graphbased
+Graph-basedindexingconsistsinbuildingadirected
+graphwhosenodesarethevectorstoindex. Atsearch
+time,thegraphisexploredbyfollowingtheedgesto-
+wardsthenodesthatareclosesttothequeryvector.In
+practice,thesearchisnotgreedybutmaintainsapri-
+orityqueuewiththemostpromisingedgestoexplore.
+Thus,thetrade-offatsearchtimeisgivenbythenum-
+ber of exploration steps: higher is more accurate but
+slower.
+A graph-based algorithm is a general framework
+thatcanencompassmanyvariants. Inparticular,tree-
+based search or IVF can be seen as special cases of
+graphs. One can see graphs as a way to precompute
+neighbors for the database vectors, then match the
+querytooneoftheverticesandfollowtheneighbors
+fromthere. However,theycanalsobebuilttohandle
+out-of-distributionqueries[42,17].
+Given this search algorithm, relying on a pure k-
+nearestneighborgraphisnotoptimalbecauseneigh-
+bors are redundant. Therefore, the graph building
+heuristicconsistsinbalancingedgestonearestneigh-
+bors and edges that reach more distant nodes. Most
+graph methods fix the number of outgoing edges
+pernode,whichadjuststhetrade-offbetweensearch
+speed and memory usage. The memory usage per
+vector breaks down into (1) the possibly compressed
+vectorand(2)theoutgoingedgesforthatvector[29].
+Faiss implements two graph-based algorithms:
+HNSW and NSG, respectively in the IndexHNSW and
+IndexNSGclasses.
+11
+
+[[page:12]]
+106
+105
+104
+0.70 0.75 0.80 0.85 0.90 0.95 1.00
+1-recall@1
+dnoces
+rep
+seireuQ
+8 edges
+16 edges
+32 edges
+64 edges 105
+64 64
+128 128
+256
+256 104
+512
+512
+1024
+1024
+2048 103
+0.5 0.6 0.7 0.8 0.9 0.95 0.99 0.999 1
+10-recall@10
+Figure 7: Comparison of graph-based indexing methods HNSW
+(fulllines)andNSG(dashes)toindexDeep1M.Wesweepthetrade-
+offsbetweenspeedandaccuracybyvaryingthenumberofgraph
+traversalsteps(indicatedforsomeofthecurves).
+HNSW. The hierarchical navigable small world
+graph[55]isasearchstructurewheresomerandomly
+selectedverticesarepromotedtobehubsthatareex-
+ploredfirst. AnotableadvantageofHNSWisitsabil-
+itytoaddvectorson-the-fly.
+NSG. The Navigating Spreading-out Graph [32] is
+built from a k-nearest neighbor graph that must be
+provided on input. At building time, some short-
+range edges are replaced with longer-range edges.
+The input k-nn graph can be built with a brute force
+algorithm or with a specialized method such as NN-
+descent [26] (NNDescent). Unlike HNSW, NSG does
+notrelyonmulti-layergraphstructures,butuseslong
+connections to achieve fast navigation. In addition,
+NSGstartsfromafixedcenterpointwhensearching.
+Discussion. Figure 7 compares the speed-accuracy
+trade-offfortheNSGandHNSWindexes. Theirmain
+build-time hyperparameter is the number of edges
+per node, so we tested several settings (for HNSW
+this is the number of edges on the base level of the
+hierarchical graph). The main search-time param-
+eter is the number of graph traversal steps during
+search(parameterefSearchforHNSWandsearch L
+forNSG),whichwevarytoploteachcurve. Increas-
+ingthenumberofedgesimprovestheresultsuntil64
+edges,beyondwhichperformancedeteriorates. NSG
+obtains better trade-offs in general, at the cost of a
+longer build time. Building the k-NN graph with
+NN-descent for 1M vectors takes 37s, and about the
+same time with exact, brute force search on a GPU.
+The NSG graph is frozen after the first batch of vec-
+torsisadded,thereisnoeasywaytoaddmorevectors
+afterwards.
+5.3 Howtochooseanindex
+In most cases, choosing an appropriate index can
+be done by following a process delineated in Ap-
+)dehctab
+,sdaerht
+84(
+SPQ
+deep-image-96-angular (10M vectors)
+faiss
+scann
+vamana
+Figure8:ComparisonbetweentheFaisstwoothervectorsearchli-
+braries(SCANNandDiskann/vamana)whenDeep10Mintheann-
+benchmarkssetup(batchmode).
+pendixA.5. First,onehastodecidewhetherindexing
+is needed at all: indeed, in some cases a direct brute
+force search is the best option. Otherwise, the choice
+isbetweenIVFandgraph-basedindexes.
+IVF vs. graph-based. Graph-based indices are a
+good option for indexes where there is no constraint
+on memory usage, typically for indexes below 1M
+vectors. Beyond 10M vectors, the construction time
+typically becomes the limiting factor. For larger in-
+dexes, where compression is required to even fit the
+databasevectorsinmemory,IVFindexesaretheonly
+option.
+ThedecisiontreeofFigure10providesintialdirec-
+tions. TheFaisswiki5 featurescomprehensivebench-
+marks for various database sizes and memory bud-
+gets. To refine the index parameters, benchmarking
+shouldbeused.
+5.4 Benchmarkingindexes
+Faissincludesabenchmarkingframework(bench fw)
+thatoptimizesindextypesandparameterstoexplore
+accuracy, memory usage and search time operating
+points. The benchmark generates candidate index
+configurationstoevaluate,sweepsbothconstruction-
+timeandsearch-timeparameters,andmeasuresthese
+metrics.
+Decouplingencodingandnon-exhaustivesearchop-
+tions. Beyond a certain scale, search time is deter-
+mined by the number of distance computations per-
+formed between the query vector and database vec-
+tors.
+As shown in Sections 5 and 4, Faiss indexes are
+built as a combination of pruning and compression,
+see Table 4. To evaluate index configurations effi-
+ciently,thebenchmarkingframeworktakesadvantage
+5https://github.com/facebookresearch/faiss/
+wiki/Indexing-1G-vectors
+12
+
+[[page:13]]
+of this compositional design. The training of vec- Flat indexes. Sequential indexes (IndexFlatCodes)
+tor transformations and k-means clustering for IVF storevectorsasanarray.Theysupportonlysequential
+coarse quantizers are factored out and reused when ids. When arbitrary ids are needed, the index can be
+possible. Coarse quantizers and IVF indices are first embedded in a IndexIDMap, that translates sequence
+trainedandevaluatedseparately,theparameterspace numbers to arbitrary ids using a int64 array. This
+is pruned as described in the previous section, and enablesadd with idsandreturnsthearbitraryidsat
+onlythecombinationsofPareto-optimalcomponents searchtime. IndexIDMap2inadditionmapsarbitrary
+arebenchmarkedtogether. ids back to sequential ids using a hash table. The
+graphindexesrelyonanembeddedIndexFlatCodes
+to store the actual vectors. To use them with non-
+5.5 Comparisonwithotherlibraries
+sequentialids,theyshouldbewrappedwiththesame
+ANN-benchmarks [3] is a codebase that compares mappingobjects.
+several ANNS implementations. We use this setup
+tocompareFaisswithSCANN[36]andVamana[79],
+IVF indexes. The IVF indexing structure supports
+two other industry-standard packages for vector
+user-provided ids natively at addition and search
+search. We run the search in the following set-
+time.However,id-basedaccessmayrequireasequen-
+ting: batch search on the Deep10M dataset with 10-
+tial scan, as the entries are stored in an arbitrary or-
+recall@10 as the metric, where the training is per-
+derintheinvertedlists. Therefore,theIVFindexcan
+formed on the database vectors. This differs slightly optionally maintain a DirectMap, which maps user-
+from the evaluation protocol used originally for this
+visible ids to the inverted list and the offset they are
+dataset.
+storedin. Itsupportslookup,removalandupdateby
+Figure 8 shows that Faiss is faster than SCANN
+ids. The map can be an array, which is appropriate
+andabouton-parwithVamana,dependingontheop-
+forsequentialids, orahashtable, forarbitrary63-bit
+erating point. For Faiss we used IVF with a Prod-
+ids.Thedirectmapincursamemoryoverheadandan
+uct Residual Quantizer optimized for SIMD (see Ap-
+add-time computation overhead, therefore, it is dis-
+pendixA.3),followedbyre-ranking(Section3.5).
+abledbydefault.
+6 Database operations Graph indexes. The graph index HNSW does not
+supportsuppressionandmutation,andNSGdoesnot
+Intheexperimentsabove,theindexesarebuiltinone evensupportaddingvectorsincrementally. Support-
+go with all the vectors, while search operations are ingthisrequiresheuristicstorebuildthegraphwhen
+performed with one batch containing all query vec- it is mutated, which are implemented in HNSWlib
+tors. Inrealsettings,theindexevolvesovertime,vec- and FreshDiskANN [78] but suboptimal indexing-
+torsmaybedynamicallyaddedorremoved,searches wise.
+may have to take into account metadata, etc. In this
+sectionweshowhowFaisssupportssomeoftheseop- 6.2 Filteredsearch
+erations. Specific APIs are available to interface with
+external storage (Appendix A.4) if fine-grained con- Vector filtering consists in returning only database
+trolisrequired. vectors based on some search-time criterion, other
+vectorsareignored. Faisshasbasicsupportforvector
+filtering:theusercanprovideapredicate(IDSelector
+6.1 Identifier-basedoperations
+callback),andifthepredicatereturnsfalseonthevec-
+Faissindexessupporttwotypesofidentifiers:sequen- torid,thevectorisignored.
+tialandarbitraryids. Sequentialidsarebasedonthe Therefore, if metadata is needed to filter the vec-
+orderofadditionsintheindex. Alternatively,theuser tors, the callback function needs to do an indirection
+can provide arbitrary 63-bit integer ids associated to to the metadata table, which is inefficient. Another
+eachvector(thesignbitisreservedforinvalidresults). approach is to exploit the unused bits of the identi-
+Thecorrespondingadditionmethodsfortheindexare fier. IfN documentsareindexedwithsequentialids,
+addandadd with ids. Unlikee.g. Usearch[87],Faiss 63−⌈log (N)⌉bitsareunused.
+2
+doesnotstorearbitrarymetadatawiththevectors. This is sufficient to store enumerated types (e.g.
+countrycodes,musicgenres,licensetypes,etc.),dates
+(as days since some origin), version numbers, etc.
+Index updates. The Faiss API includes methods
+However,itisinsufficientformorecomplexmetadata.
+to remove vectors (remove ids) and update them
+In the example use case below, we use the available
+(update vectors)bypassingthecorrespondingids.
+bitstoimplementmorecomplexfiltering.
+Note that if the vector distribution changes signif-
+icantly because of additions/removals or updates,
+then the efficiency of any technique that fits the data Filtering with bag-of-word vectors. In the filtered
+distributiondegrades.ThisincludesIVFandPQcom- search track of the BigANN 2023 competition [75],
+pression. This degradation can be addressed by ex- each query and database vector is associated with a
+plicitupdatesoftheindexstructure[8]. few terms from a fixed vocabulary of size v (for the
+13
+
+[[page:14]]
+queriesthereareonly1or2words). Thefilteringcon- we map each word w to the list of items that contain
+sistsinconsideringonlythedatabasevectorsthatin- w,ofsizeL .
+w
+cludeallthequeryterms. . Thismetadataisgivenas If there is a single query word {w } then the sub-
+1
+asparsematrixM ∈{0,1}N×v. set size is directly accessible as S = L . With two
+meta w1
+The basic implementation of the filter starts from querywords{w ,w },findingthesubsetsizerequires
+1 2
+query vector q and the associated words w ,w ∈ intersectingtheinvertedlistsforw andw , whichis
+1 2 1 2
+{1...v}. Before computing a distance to a vector with slow. Instead, one can estimate the size of the subset
+id i, it fetches row i of M to verify that w and usingtheempiricalprobabilityofeachwordtoappear
+meta 1
+w are in it. This predicate is slow because (1) it re- P(w) = L /N. Assuming independent draws, the
+2 w
+quirestoaccessM ,whichcausescachemissesand probability of both words to appear is P(w )P(w ).
+meta 1 2
+(2)itperformsaniterativebinarysearchinthesparse Therefore,theexpectedsizeoftheintersectionisS ≈
+matrix structure. Since the callback is called in the NP(w )P(w ) = L L /N. If S/N < 3 × 10−4
+1 2 w1 w2
+tightest inner loop of the search function, and since (anempiricalthreshold),thenthesubsetissufficiently
+theIVFsearchtendstoperformmanyvectorcompar- smallthatmetadata-firstcanbeapplied. Ofcourse,if
+isons,thishasnonnegligibleperformanceimpact. metadata-first is selected, the actual intersection has
+To speed up the predicate, we can use bit manip- tobecomputed. Mostparticipantstothecompetition
+ulations. In this example, N = 107, so we use only usedsimilarheuristics.
+⌈log N⌉=24bitsoftheids,leaving63−24=39bits
+2
+that are always 0. We associate to each word j a 39-
+7 Faiss applications
+bitsignatureS[j],andtoeachsetofwordsthebinary
+“or”ofthesesignatures. Thequeryisrepresentedby
+s = S[w ]∨S[w ]. Database entry i with words W Faiss is widely used across the industry, with nu-
+q 1 2 i
+isrepresentedbys =∨ S[w]. Thenthefollowing merous applications leveraging its capabilities. The
+i w∈Wi
+implication holds: if {w ,w } ⊂ W then all 1 bits of following examples highlight notable use cases that
+1 2 i
+s arealsosetto1ins : demonstrate exceptional scalability or significant im-
+q i
+pact.
+{w ,w }⊂W ⇒¬s ∧s =0, (19)
+1 2 i i q
+7.1 Trillionscaleindex
+whichisequivalentto:
+Inthisexample,weindex1.5trillionvectorsin144di-
+¬s ∧s ̸=0⇒{w ,w }̸⊂W . (20)
+i q 1 2 i mensions. The indexing needs to be accurate, there-
+fore the compression of the vectors is limited to 54
+Thisbinarytestcostsonlyafewmachineinstructions
+bytes with a PCA to 72 dimensions and 6-bit scalar
+on data that is already in machine registers. It can
+quantizer(PCAR72,SQ6).
+thusbeusedasapre-filterbeforeapplyingthepredi-
+A HNSW coarse quantizer with 10M centroids is
+catecomputation. Thisisimplementedinthemodule
+bow id selector6.
+usedfortheIndexIVFScalarQuantizer,trainedwith
+a simple distributed GPU k-means (implemented in
+Theremainingdegreeoffreedomishowtochoose
+faiss.clustering).
+thebinarysignatures,becausethisrule’sfilteringabil-
+Oncethetrainingiscompleted,theindexisbuiltin
+itydependsonthechoiceofthesignaturesS. Weex-
+thefollowingthreephases:
+perimented with i.i.d. Bernoulli bits with varying p:
+thebestsettingavoidsrunningthefullpredicatemore 1. shard over ids: add the input vectors in 2000
+than4/5times. shards independently, producing 2000 indexes
+(eachonefitsin256GBRAM);
+p=probabilityof1 0.05 0.1 0.2 0.5
+Filterhitrate 75.4% 82.1% 76.4% 42.0% 2. shard over lists: build the 100 indexes corre-
+sponding each to a subset of 100k inverted lists.
+Vector-first or metadata-first search. There are two Thisisdoneon100differentmachines,eachread-
+possible approaches to filtered search: vector-first, ing from the 2000 sharded indices, and writing
+which is described above, and metadata-first, where theresultsdirectlytoadistributedfilesystem;
+only vectors with appropriate metadata are consid-
+3. loadtheshards: memory-mapall100indexeson
+eredinvectorsearch. Themetadata-firstfilteringgen-
+acentralmachineas100OnDiskInvertedLists(a
+erates a subset of vectors to compare with that can
+memorymapof83TiB).
+then be compared using brute force search. Brute
+force search is slow but acceptable if the subset size Steps 1 and 2 are organized to be performed as in-
+issmall,andtheresultsareexact. dependent cluster jobs on a few hundred servers (64
+Therefore, in the context of the BigANN competi- cores, 256G RAM). Otherwise, the code is written in
+tion[75], thedecisiontousevector-firstormetadata- standardFaissinPython.
+firstdependsonhowlargethesubsetis. Tothisend, Thecentralmachinethathandlessearchesperforms
+the coarse quantization and loads the inverted lists
+6https://github.com/harsha-simhadri/
+big-ann-benchmarks/tree/main/neurips23/filter/ from the distributed disk partition. The limiting fac-
+faiss toristhenetworkbandwidthofthiscentralmachine.
+14
+
+[[page:15]]
+Therefore, it is more efficient to distribute the search hardware support for some indexes [63] and new in-
+on 20 intermediate servers to spread the load. This dexingforms,suchasassociativevectormemoriesfor
+bringsthesearchtimedowntoroughly1sperquery. transformerarchitectures[20,94].
+7.2 Textretrieval References
+Faissiscommonlyusedforknowledgeintensivenat-
+[1] Kenza Amara, Matthijs Douze, Alexandre
+urallanguageprocessingtasks.Inparticular,ANNSis
+Sablayrolles, and Herve´ Je´gou. Nearest neigh-
+relevantforinformationretrieval[85,67],withappli-
+bor search with compact codes: A decoder
+cationssuchasfactchecking,entitylinking,slotfilling
+perspective. InICMR,2022.
+oropen-domainquestionanswering: theseoftenrely
+onretrievingrelevantcontentacrossalarge-scalecor- [2] Alexandr Andoni and Ilya Razenshteyn. Op-
+pus. Tothatend, embeddingmodelshavebeenopti- timal data-dependent hashing for approximate
+mizedfortextretrieval[40,49]. nearneighbors. InProceedingsoftheforty-seventh
+Finally, [41], [50], [74] and [48] consist of language annual ACM symposium on Theory of computing,
+modelsthathavebeentrainedtointegratetextualre- pages793–801,2015.
+trievalinordertoimprovetheiraccuracy,factualityor
+computeefficiency. [3] Martin Aumu¨ller, Erik Bernhardsson, and
+AlexanderFaithfull. Ann-benchmarks: Abench-
+marking tool for approximate nearest neighbor
+7.3 Datamining
+algorithms. InformationSystems,87:101374,2020.
+AnotherrecurrentapplicationofANNSandFaissisin [4] ArtemBabenkoandVictorLempitsky. Additive
+theminingandcurationoflargedatasets. Inparticu- quantizationforextremevectorcompression. In
+lar,Faisshasbeenusedtominebilingualtextsacross ConferenceonComputerVisionandPatternRecogni-
+verylargetextdatasetsretrievedfromtheweb[72,9], tion,2014.
+or to organize a language model’s training corpus in
+ordertogrouptogetherseriesofdocumentscovering [5] Artem Babenko and Victor Lempitsky. Tree
+similartopics[73]. quantizationforlarge-scalesimilaritysearchand
+Intheimagedomain,[64]leveragesFaisstoremove classification.InProceedingsoftheIEEEConference
+duplicates from a dataset containing 1.3B images. It onComputerVisionandPatternRecognition,pages
+thenreliesonefficientindexinginordertomineacu- 4240–4248,2015.
+rateddatasetwhosedistributionmatchesthedistribu-
+[6] Artem Babenko and Victor Lempitsky. Efficient
+tionofatargetdataset.
+indexingofbillion-scaledatasetsofdeepdescrip-
+tors. InConferenceonComputerVisionandPattern
+7.4 ContentModeration Recognition,2016.
+OneofthemajorapplicationsofFaissisthedetection [7] YoramBachrach,YehudaFinkelstein,RanGilad-
+andremediationofharmfulcontentatscale. Human- Bachrach, Liran Katzir, Noam Koenigstein, Nir
+labeled examples of policies violating images and Nice, and Ulrich Paquet. Speeding up the xbox
+videosareembeddedwithmodelssuchasSSCD[69] recommendersystemusingaeuclideantransfor-
+andstoredinaFaissindex. Todecideifanewimage mationforinner-productspaces.InProceedingsof
+or video would violate some policies, a multi-stage the 8th ACM Conference on Recommender systems,
+classification pipeline first embeds the content and pages257–264,2014.
+searchestheFaissindexforsimilarlabeledexamples,
+[8] Dmitry Baranchuk, Matthijs Douze, Yash Upad-
+typically utilizing range queries. The results are ag-
+hyay, and I Zeki Yalniz. Dedrift: Robust simi-
+gregated and processed through additional machine
+laritysearchundercontentdrift. InProceedingsof
+classificationorhumanverification. Sincetheimpact
+theIEEE/CVFInternationalConferenceonComputer
+of mistakes is high, good representations should dis-
+Vision,pages11026–11035,2023.
+criminate perceptually similar and different content,
+andaccuratesimilaritysearchisrequiredevenatbil-
+[9] Lo¨ıc Barrault, Yu-An Chung, Mariano Cora
+lion to trillion scale. The former problem motivated
+Meglioli, David Dale, Ning Dong, Paul-
+theImageandVideoSimilarityChallenges[30,68].
+Ambroise Duquenne, Hady Elsahar, Hongyu
+Gong, Kevin Heffernan, John Hoffman, et al.
+Seamlessm4t-massively multilingual & mul-
+8 Conclusion
+timodal machine translation. arXiv preprint
+arXiv:2308.11596,2023.
+Throughout the years, Faiss continuously expanded
+its focus to include the most relevant vector index- [10] Piotr Bojanowski, Edouard Grave, Armand
+ingtechniquesfromresearch. Wecontinuedoingthis Joulin,andTomasMikolov. Enrichingwordvec-
+to include novel quantization techniques [39], better torswithsubwordinformation.Transactionsofthe
+15
+
+[[page:16]]
+associationforcomputationallinguistics, 5:135–146, [21] FelixChern,BlakeHechtman,AndyDavis,Ruiqi
+2017. Guo, David Majnemer, and Sanjiv Kumar. Tpu-
+knn: K nearest neighbor search at peak flop/s.
+[11] LeonidBoytsov,DavidNovak,YuryMalkov,and AdvancesinNeuralInformationProcessingSystems,
+Eric Nyberg. Off the beaten path: Let’s replace 35:15489–15501,2022.
+term-based retrieval with k-nn search. In Pro-
+ceedingsofthe25thACMinternationalonconference [22] MayurDatar,NicoleImmorlica,PiotrIndyk,and
+on information and knowledge management, pages Vahab S Mirrokni. Locality-sensitive hashing
+1099–1108,2016. scheme based on p-stable distributions. In Pro-
+ceedingsofthetwentiethannualsymposiumonCom-
+[12] Sebastian Bruch, Franco Maria Nardini, Amir putationalgeometry,pages253–262,2004.
+Ingber, and Edo Liberty. An approximate al-
+gorithm for maximum inner product search [23] Jiankang Deng, Jia Guo, Niannan Xue, and Ste-
+over streaming sparse vectors. arXiv preprint fanosZafeiriou. Arcface: Additiveangularmar-
+arXiv:2301.10622,2023. ginlossfordeepfacerecognition. InProceedings
+oftheIEEE/CVFConferenceonComputerVisionand
+[13] Zhangjie Cao, Mingsheng Long, Jianmin Wang, PatternRecognition(CVPR),June2019.
+andPhilipS.Yu. Hashnet:Deeplearningtohash
+by continuation. In Proceedings of the IEEE Inter- [24] JacobDevlin,Ming-WeiChang,KentonLee,and
+nationalConferenceonComputerVision(ICCV),Oct Kristina Toutanova. Bert: Pre-training of deep
+2017. bidirectional transformers for language under-
+standing. arXivpreprintarXiv:1810.04805,2018.
+[14] Mathilde Caron, Piotr Bojanowski, Armand
+[25] Inderjit S Dhillon and Dharmendra S Modha.
+Joulin, and Matthijs Douze. Deep clustering for
+Concept decompositions for large sparse text
+unsupervisedlearningofvisualfeatures. InPro-
+data using clustering. Machine learning, 42:143–
+ceedings of the European conference on computer vi-
+175,2001.
+sion(ECCV),pages132–149,2018.
+[26] Wei Dong, Charikar Moses, and Kai Li. Effi-
+[15] Mathilde Caron, Hugo Touvron, Ishan Misra,
+cient k-nearest neighbor graph construction for
+Herve´ Je´gou, Julien Mairal, Piotr Bojanowski,
+genericsimilaritymeasures. InProceedingsofthe
+andArmandJoulin. Emergingpropertiesinself-
+20th international conference on World wide web,
+supervisedvisiontransformers. InProceedingsof
+pages577–586,2011.
+the IEEE/CVF international conference on computer
+vision,pages9650–9660,2021.
+[27] Matthijs Douze and Herve´ Je´gou. The yael li-
+brary.InProceedingsofthe22ndACMinternational
+[16] MosesCharikar.Similarityestimationtechniques
+conferenceonMultimedia,pages687–690,2014.
+from rounding algorithms. In Proc. ACM symp.
+Theoryofcomputing,2002.
+[28] Matthijs Douze, Herve´ Je´gou, and Florent Per-
+ronnin. Polysemous codes. In European Confer-
+[17] Meng Chen, Kai Zhang, Zhenying He, Yinan
+enceonComputerVision,2016.
+Jing, andXSeanWang. Roargraph: Aprojected
+bipartitegraphforefficientcross-modalapprox- [29] Matthijs Douze, Alexandre Sablayrolles, and
+imate nearest neighbor search. arXiv preprint Herve´ Je´gou. Linkandcode: Fastindexingwith
+arXiv:2408.08933,2024. graphsandcompactregressioncodes.InProceed-
+ings of the IEEE conference on computer vision and
+[18] Ting Chen, Simon Kornblith, Mohammad
+patternrecognition,pages3646–3654,2018.
+Norouzi, and Geoffrey Hinton. A simple
+framework for contrastive learning of visual [30] Matthijs Douze, Giorgos Tolias, Ed Pizzi, Zoe¨
+representations. In Proceedings of the 37th Papakipos, Lowik Chanussot, Filip Radenovic,
+International Conference on Machine Learning, Tomas Jenicek, Maxim Maximov, Laura Leal-
+Proceedings of Machine Learning Research, Taixe´, Ismail Elezi, et al. The 2021 image sim-
+pages1597–1607.PMLR,2020. ilarity dataset and challenge. arXiv preprint
+arXiv:2106.09672,2021.
+[19] YongjianChen,TaoGuan,andChengWang. Ap-
+proximate nearest neighbor search by residual [31] Paul-AmbroiseDuquenne,HolgerSchwenk,and
+vectorquantization. Sensors,10(12):11259–11273, Benoˆıt Sagot. Sentence-level multimodal and
+2010. language-agnosticrepresentations. arXivpreprint
+arXiv:2308.11466,2023.
+[20] ZhuomingChen,RanajoySadhukhan,ZihaoYe,
+Yang Zhou, Jianyu Zhang, Niklas Nolte, Yuan- [32] CongFu,ChaoXiang,ChangxuWang,andDeng
+dongTian,MatthijsDouze,LeonBottou,Zhihao Cai. Fast approximate nearest neighbor search
+Jia,etal.Magicpig:Lshsamplingforefficientllm with the navigating spreading-out graph. arXiv
+generation. arXivpreprintarXiv:2410.16179,2024. preprintarXiv:1707.00143,2017.
+16
+
+[[page:17]]
+[33] Tiezheng Ge, Kaiming He, Qifa Ke, and Jian [43] Herve Jegou, Matthijs Douze, and Cordelia
+Sun. Optimized product quantization for ap- Schmid. Hamming embedding and weak geo-
+proximatenearestneighborsearch. InConference metric consistency for large scale image search.
+onComputerVisionandPatternRecognition,2013. In Computer Vision–ECCV 2008: 10th European
+Conference on Computer Vision, Marseille, France,
+[34] Siddharth Gollapudi, Neel Karia, Varun
+October 12-18, 2008, Proceedings, Part I 10, pages
+Sivashankar, Ravishankar Krishnaswamy, Nikit
+304–317.Springer,2008.
+Begwani, Swapnil Raz, Yiyong Lin, Yin Zhang,
+Neelam Mahapatro, Premkumar Srinivasan, [44] Herve´ Je´gou, Matthijs Douze, and Cordelia
+Amit Singh, and Harsha Vardhan Simhadri. Schmid. Productquantizationfornearestneigh-
+Filtered-diskann: Graph algorithms for approx- borsearch. IEEE Trans.PatternAnalysisandMa-
+imate nearest neighbor search with filters. In chineIntelligence,2010.
+ProceedingsoftheACMWebConference2023,2023.
+[45] Herve´ Je´gou,FlorentPerronnin,MatthijsDouze,
+[35] YunchaoGong,SvetlanaLazebnik,AlbertGordo, Jorge Sa´nchez, Patrick Pe´rez, and Cordelia
+andFlorentPerronnin. Iterativequantization: A Schmid. Aggregating local image descriptors
+procrustean approach to learning binary codes into compact codes. IEEE transactions on pattern
+for large-scale image retrieval. IEEE Trans. Pat- analysis and machine intelligence, 34(9):1704–1716,
+ternAnalysisandMachineIntelligence,2012. 2011.
+[36] Ruiqi Guo, Philip Sun, Erik Lindgren, Quan [46] Herve´ Je´gou,RomainTavenard,MatthijsDouze,
+Geng, David Simcha, Felix Chern, and Sanjiv and Laurent Amsaleg. Searching in one billion
+Kumar. Accelerating large-scale inference with vectors: re-rank with source coding. In Interna-
+anisotropic vector quantization. In International tional Conference on Acoustics, Speech, and Signal
+ConferenceonMachineLearning.PMLR,2020. Processing,2011.
+[37] Weixiang Hong, Xueyan Tang, Jingjing Meng,
+[47] Jeff Johnson, Matthijs Douze, and Herve´ Je´gou.
+andJunsongYuan.Asymmetricmappingquanti-
+Billion-scale similarity search with GPUs. IEEE
+zationfornearestneighborsearch. IEEETransac-
+Trans.onBigData,2019.
+tions on Pattern Analysis and Machine Intelligence,
+42(7):1783–1790,2019. [48] Urvashi Khandelwal, Omer Levy, Dan Jurafsky,
+Luke Zettlemoyer, and Mike Lewis. General-
+[38] Jui-Ting Huang, Ashish Sharma, Shuying Sun,
+izationthroughmemorization: Nearestneighbor
+Li Xia, David Zhang, Philip Pronin, Janani
+languagemodels,2020.
+Padmanabhan, Giuseppe Ottaviano, and Linjun
+Yang. Embedding-based retrieval in facebook [49] Sheng-ChiehLin,AkariAsai,MinghanLi,Barlas
+search. In Proceedings of the 26th ACM SIGKDD Oguz,JimmyLin,YasharMehdad,WentauYih,
+InternationalConferenceonKnowledgeDiscovery& andXilunChen. Howtotrainyourdragon: Di-
+DataMining,pages2553–2561,2020. verseaugmentationtowardsgeneralizabledense
+retrieval,2023.
+[39] Iris A.M. Huijben, Matthijs Douze, Matthew J.
+Muckley, Ruud J.G. van Sloun, and Jakob Ver- [50] Xi Victoria Lin, Xilun Chen, Mingda Chen, Wei-
+beek. Residualquantizationwithimplicitneural jia Shi, Maria Lomeli, Rich James, Pedro Ro-
+codebooks. InInternationalConferenceonMachine driguez, Jacob Kahn, Gergely Szilvasy, Mike
+Learning(ICML),2024. Lewis, Luke Zettlemoyer, and Scott Yih. Ra-
+dit: Retrieval-augmented dual instruction tun-
+[40] Gautier Izacard, Mathilde Caron, Lucas Hos-
+ing. ArXiv,abs/2310.01352,2023.
+seini, Sebastian Riedel, Piotr Bojanowski, Ar-
+mand Joulin, and Edouard Grave. Unsu- [51] Shicong Liu, Hongtao Lu, and Junru Shao.
+pervised dense information retrieval with con- Improved residual vector quantization for
+trastivelearning,2021. high-dimensional approximate nearest neighbor
+search. arXivpreprintarXiv:1509.05195,2015.
+[41] Gautier Izacard, Patrick Lewis, Maria Lomeli,
+LucasHosseini,FabioPetroni,TimoSchick,Jane
+[52] StuartLloyd.LeastsquaresquantizationinPCM.
+Dwivedi-Yu, Armand Joulin, Sebastian Riedel,
+IEEETransactionsonInformationTheory,1982.
+and Edouard Grave. Atlas: Few-shot learn-
+ing with retrieval augmented language models. [53] David G Lowe. Distinctive image features from
+JournalofMachineLearningResearch,24(251):1–43, scale-invariantkeypoints. InternationalJournalof
+2023. ComputerVision,60(2),2004.
+[42] Shikhar Jaiswal, Ravishankar Krishnaswamy, [54] QinLv, MosesCharikar, andKaiLi. Imagesim-
+Ankit Garg, Harsha Vardhan Simhadri, and ilarity search with compact data structures. In
+Sheshansh Agrawal. Ood-diskann: Efficient ProceedingsofthethirteenthACMinternationalcon-
+and scalable graph anns for out-of-distribution ference on Information and knowledge management,
+queries,2022. pages208–217,2004.
+17
+
+[[page:18]]
+[55] Yu A Malkov and Dmitry A Yashunin. Efficient [66] Lo¨ıc Pauleve´, Herve´ Je´gou, and Laurent Amsa-
+androbustapproximatenearestneighborsearch leg. Localitysensitivehashing: Acomparisonof
+usinghierarchicalnavigablesmallworldgraphs. hash function types and querying mechanisms.
+IEEE transactions on pattern analysis and machine Patternrecognitionletters,31(11):1348–1358,2010.
+intelligence,42(4):824–836,2018.
+[67] Fabio Petroni, Aleksandra Piktus, Angela
+[56] Julieta Martinez, Joris Clement, Holger H Hoos, Fan, Patrick Lewis, Majid Yazdani, Nicola
+andJamesJLittle. Revisitingadditivequantiza- De Cao, James Thorne, Yacine Jernite, Vladimir
+tion. In European Conference on Computer Vision, Karpukhin, Jean Maillard, Vassilis Plachouras,
+2016. Tim Rockta¨schel, and Sebastian Riedel. KILT: a
+benchmark for knowledge intensive language
+[57] Julieta Martinez, Shobhit Zakhmi, Holger H tasks. In Proceedings of the 2021 Conference of
+Hoos,andJamesJLittle. LSQ++: lowerrunning the North American Chapter of the Association
+timeandhigherrecallinmulti-codebookquanti- for Computational Linguistics: Human Language
+zation.InEuropeanConferenceonComputerVision,
+Technologies, Online, June 2021. Association for
+2018.
+ComputationalLinguistics.
+[58] Yusuke Matsui, Yusuke Uchida, Herve´ Je´gou,
+[68] Ed Pizzi, Giorgos Kordopatis-Zilos, Hiral Patel,
+and Shin’ichi Satoh. A survey of product quan-
+Gheorghe Postelnicu, Sugosh Nagavara Ravin-
+tization. ITETransactionsonMediaTechnologyand
+dra, Akshay Gupta, Symeon Papadopoulos,
+Applications,2018.
+Giorgos Tolias, and Matthijs Douze. The 2023
+video similarity dataset and challenge. arXiv
+[59] Tomas Mikolov, Kai Chen, Greg Corrado, and
+preprintarXiv:2306.09489,2023.
+Jeffrey Dean. Efficient estimation of word rep-
+resentations in vector space. arXiv preprint
+[69] Ed Pizzi, Sreya Dutta Roy, Sugosh Nagavara
+arXiv:1301.3781,2013.
+Ravindra, Priya Goyal, and Matthijs Douze. A
+self-superviseddescriptorforimagecopydetec-
+[60] Stanislav Morozov and Artem Babenko. Non-
+tion. In Proceedings of the IEEE/CVF Conference
+metric similarity graphs for maximum inner
+onComputerVisionandPatternRecognition,pages
+product search. Advances in Neural Information
+14532–14542,2022.
+ProcessingSystems,31,2018.
+[70] Alec Radford, Jong Wook Kim, Chris Hallacy,
+[61] Stanislav Morozov and Artem Babenko. Un-
+AdityaRamesh,GabrielGoh,SandhiniAgarwal,
+supervised neural quantization for compressed-
+Girish Sastry, Amanda Askell, Pamela Mishkin,
+domainsimilaritysearch. InInternationalConfer-
+Jack Clark, et al. Learning transferable visual
+enceonComputerVision,82019.
+models from natural language supervision. In
+[62] MariusMujaandDavidGLowe.Scalablenearest Internationalconferenceonmachinelearning,pages
+neighbor algorithms for high dimensional data. 8748–8763.PMLR,2021.
+IEEE transactions on pattern analysis and machine
+intelligence,36(11):2227–2240,2014. [71] Harsimrat Sandhawalia and Herve´ Je´gou.
+Searching with expectations. In International
+[63] Hiroyuki Ootomo, Akira Naruse, Corey Nolet, ConferenceonAcoustics,Speech,andSignalProcess-
+RayWang,TamasFeher,andYongWang. Cagra: ing,2010.
+Highlyparallelgraphconstructionandapproxi-
+matenearestneighborsearchforgpus,2023. [72] Holger Schwenk and Matthijs Douze. Learning
+joint multilingual sentence representations with
+[64] Maxime Oquab, Timothe´e Darcet, Theo neural machine translation. In Proceedings of the
+Moutakanni, Huy V. Vo, Marc Szafraniec, 2nd Workshop on Representation Learning for NLP,
+VasilKhalidov,PierreFernandez,DanielHaziza, pages157–167,Vancouver,Canada,August2017.
+Francisco Massa, Alaaeldin El-Nouby, Russell AssociationforComputationalLinguistics.
+Howes, Po-Yao Huang, Hu Xu, Vasu Sharma,
+Shang-Wen Li, Wojciech Galuba, Mike Rabbat, [73] Weijia Shi, Sewon Min, Maria Lomeli, Chunting
+Mido Assran, Nicolas Ballas, Gabriel Synnaeve, Zhou, MargaretLi, VictoriaLin, NoahA.Smith,
+Ishan Misra, Herve Jegou, Julien Mairal, Patrick LukeZettlemoyer,ScottYih,andMikeLewis. In-
+Labatut, Armand Joulin, and Piotr Bojanowski. contextpretraining: Languagemodelingbeyond
+DINOv2: Learning robust visual features document boundaries. ArXiv, abs/2310.10638,
+withoutsupervision,2023. 2023.
+[65] Arkadiusz Paterek. Improving regularized sin- [74] Weijia Shi, Sewon Min, Michihiro Yasunaga,
+gular value decomposition for collaborative fil- Minjoon Seo, Rich James, Mike Lewis, Luke
+tering. In Proceedings of KDD cup and workshop, Zettlemoyer,andWentauYih.Replug:Retrieval-
+2007. augmentedblack-boxlanguagemodels,2023.
+18
+
+[[page:19]]
+[75] Harsha Vardhan Simhadri, Martin Aumu¨ller, [84] Romain Tavenard, Herve´ Je´gou, and Laurent
+Amir Ingber, Matthijs Douze, George Williams, Amsaleg. Balancing clusters to reduce response
+MagdalenDobsonManohar,DmitryBaranchuk, time variability in large scale image search. In
+EdoLiberty, FrankLiu, BenLandrum, etal. Re- 2011 9th International Workshop on Content-Based
+sults of the big ann: Neurips’23 competition. Multimedia Indexing (CBMI), pages 19–24. IEEE,
+arXivpreprintarXiv:2409.17424,2024. 2011.
+[76] Harsha Vardhan Simhadri, George Williams, [85] Nandan Thakur, Nils Reimers, Andreas Ru¨ckle´,
+Martin Aumu¨ller, Matthijs Douze, Artem AbhishekSrivastava,andIrynaGurevych. BEIR:
+Babenko, Dmitry Baranchuk, Qi Chen, Lucas Aheterogeneousbenchmarkforzero-shotevalu-
+Hosseini, Ravishankar Krishnaswamny, Gopal ation of information retrieval models. In Thirty-
+Srinivasa, et al. Results of the neurips’21 fifth Conference on Neural Information Processing
+challenge on billion-scale approximate nearest Systems Datasets and Benchmarks Track (Round 2),
+neighbor search. In NeurIPS 2021 Competitions 2021.
+and Demonstrations Track, pages 177–189. PMLR,
+[86] Bob van Luijt and Micha Verhagen. Bringing
+2022.
+semantic knowledge graph technology to your
+data. IEEESoftware,37(2):89–94,2020.
+[77] Harsha Vardhan Simhadri, George Williams,
+Martin Aumu¨ller, Matthijs Douze, Artem
+[87] Ash Vardanian. USearch by Unum Cloud, June
+Babenko, Dmitry Baranchuk, Qi Chen, Lucas
+2022.
+Hosseini, Ravishankar Krishnaswamny, Gopal
+Srinivasa,SuhasJayaramSubramanya,andJing- [88] Pauli Virtanen, Ralf Gommers, Travis E.
+dong Wang. Results of the neurips’21 challenge Oliphant, Matt Haberland, Tyler Reddy, David
+on billion-scale approximate nearest neighbor Cournapeau, Evgeni Burovski, Pearu Peterson,
+search. In Proceedings of the NeurIPS 2021 Com- Warren Weckesser, Jonathan Bright, Ste´fan J.
+petitions and Demonstrations Track, volume 176 of van der Walt, Matthew Brett, Joshua Wilson,
+Proceedings of Machine Learning Research, pages K. Jarrod Millman, Nikolay Mayorov, Andrew
+177–189.PMLR,06–14Dec2022. R. J. Nelson, Eric Jones, Robert Kern, Eric Lar-
+son, C J Carey, I˙lhan Polat, Yu Feng, Eric W.
+[78] Aditi Singh, Suhas Jayaram Subramanya, Rav- Moore, Jake VanderPlas, Denis Laxalde, Josef
+ishankar Krishnaswamy, and Harsha Vardhan Perktold, RobertCimrman, IanHenriksen, E.A.
+Simhadri. Freshdiskann: A fast and accurate Quintero,CharlesR.Harris,AnneM.Archibald,
+graph-based ann index for streaming similarity Antoˆnio H. Ribeiro, Fabian Pedregosa, Paul van
+search,2021. Mulbregt,andSciPy1.0Contributors. SciPy1.0:
+Fundamental Algorithms for Scientific Com-
+[79] Suhas Jayaram Subramanya, Rohan Kadekodi, puting in Python. Nature Methods, 17:261–272,
+RavishankarKrishaswamy,andHarshaVardhan 2020.
+Simhadri. Diskann: Fast accurate billion-point
+nearest neighbor search on a single node. In [89] Jianguo Wang, Xiaomeng Yi, Rentong Guo, Hai
+Neurips,2019. Jin, Peng Xu, Shengjun Li, Xiangyu Wang, Xi-
+angzhou Guo, Chengming Li, Xiaohai Xu, et al.
+[80] Philip Sun, Ruiqi Guo, and Sanjiv Kumar. Au- Milvus: A purpose-built vector data manage-
+tomating nearest neighbor search configuration ment system. In Proceedings of the 2021 Inter-
+with constrained optimization. arXiv preprint national Conference on Management of Data, pages
+arXiv:2301.01702,2023. 2614–2627,2021.
+[90] Jingdong Wang, Ting Zhang, Nicu Sebe,
+[81] Philip Sun, David Simcha, Dave Dopson, Ruiqi
+Heng Tao Shen, et al. A survey on learning
+Guo,andSanjivKumar. Soar: Improvedquanti-
+to hash. IEEE transactions on pattern analysis and
+zation for approximate nearest neighbor search.
+InThirty-seventhConferenceonNeuralInformation
+machineintelligence,40(4):769–790,2017.
+ProcessingSystems,2023.
+[91] Jun Wang, Wei Liu, Sanjiv Kumar, and Shih-Fu
+Chang. Learningtohashforindexingbigdata-
+[82] Christian Szegedy, Wei Liu, Yangqing Jia, Pierre
+asurvey. Proc.oftheIEEE,2015.
+Sermanet, Scott Reed, Dragomir Anguelov, Du-
+mitru Erhan, Vincent Vanhoucke, and Andrew [92] Mengzhao Wang, Xiaoliang Xu, Qiang Yue, and
+Rabinovich. Goingdeeperwithconvolutions. In YuxiangWang. Acomprehensivesurveyandex-
+Proceedings of the IEEE conference on computer vi- perimental comparison of graph-based approx-
+sionandpatternrecognition,pages1–9,2015. imate nearest neighbor search. arXiv preprint
+arXiv:2101.12631,2021.
+[83] GergelySzilvasy,Pierre-EmmanuelMazare´,and
+Matthijs Douze. Vector search with small ra- [93] Roger Weber, Hans-Jo¨rg Schek, and Stephen
+diuses,2024. Blott. A quantitative analysis and performance
+19
+
+[[page:20]]
+A Appendix
+study for similarity-search methods in high-
+dimensionalspaces. InVLDB,volume98,pages
+194–205,1998. ThisappendixexposesaspectsofFaiss’simplementa-
+tion. Faiss started in a research environment. As a
+[94] JianyuZhang,NiklasNolte,RanajoySadhukhan,
+consequence,itgreworganicallyasindexingresearch
+BeidiChen,andLe´onBottou. Memorymosaics,
+wasmakingprogress.
+2024.
+In the following, we summarize the guiding prin-
+ciples that keep the library coherent (Appendix A.1);
+thestructureofthelibraryanditsdependencies(Ap-
+pendix A.2); how optimization is performed (Ap-
+pendixA.3);anexampleofhowFaissinternalsareex-
+posedsothatitcanbeembeddedinavectordatabase
+(Appendix A.4; and finally, a flowchart that shows
+howtochooseaFaissindex(AppendixA.5).
+A.1 Codestructure
+ThecoreofFaissisimplementedinC++. Theguiding
+principles are (1) the code should be as open as pos-
+sible, so that users can access all the implementation
+detailsoftheindexes; (2)Faissshouldbeeasytoem-
+bedfromexternallibraries;(3)thecorelibraryfocuses
+onvectorsearchonly.
+Therefore, all fields of the classes are public (C++
+struct). FaissisalateadopterforC++standards,so
+thatitcanbeusedwithrelativelyoldcompilers(cur-
+rentlyC++17).
+Faiss’sbasicdatatypesareconcrete(nottemplates):
+vectorsarealwaysrepresentedas32-bitfloatsthatare
+portable and provide a good trade-off between size
+andaccuracy. Similarly,allvectoridsarerepresented
+with 64-bit integers. This is often larger than neces-
+sary for sequential numbering but is widely used for
+databaseidentifiers.
+Faiss is modular and includes few dependencies,
+so that linking it from C++ is easy. Callback classes
+(ResultHanlder,InvertedLists,IDSelector)canbe
+subclassed to customize the indices. On the Python
+level,theycanbewrappedinSWIGtobeprovidedto
+FaisswithoutrecompilingFaissitself.
+A.2 High-levelinterface
+Figure 9 shows the structure of the library. The C++
+corelibraryandtheGPUadd-onhaveasfewdepen-
+denciesaspossible: onlyaBLASimplementationand
+CUDAitself.
+In order to facilitate experimentation, the whole li-
+brary is wrapped for Python with numpy. To this
+end, SWIG7 exhaustively generates wrappers for all
+C++ classes, methods and variables. The associ-
+ated Python layer also contains benchmarking code,
+datasetdefinitions,drivercode. Moreandmorefunc-
+tionalityisembeddedinthecontribpackageofFaiss.
+Faiss also provides a pure C API, which is useful for
+bindings with programming languages such as Rust
+orJava.
+The Index is presented to the end user as a mono-
+lithic object, even when it embeds other indexes
+7https://www.swig.org/
+20
+
+[[page:21]]
+When generic scalar CPU optimizations are ex-
+Rust / C# code hausted, Faiss also optimizes specifically for some
+C de + m + o c s o d / e t ests R C u # s w t r w a r p a p p e p r e ,. r .. P te y s t t h s o / n b c e o n d c e h s hardwareplatforms.
+Faiss Adaptor layer Python contrib library CPU vectorization. Modern CPUs support Single
+__init__.py, class_enhancement.py (contrib.datasets, etc.)
+Instruction, Multiple Data (SIMD) operations, specif-
+C wrapper S sw W ig IG fa i w ss ra .s p w p i e g r → (P y s t w h i o g n fa ) iss.py ically AVX/AVX2/AVX512 for x86 and NEON for
+ARM.Faissexploitsthoseatthreelevels.
+When operations are simple enough (e.g. elemen-
+GPU index implementations Index implementations cppcontrib library
+GpuIndexIVFPQ, … IndexIVFPQ, IndexFlat, etc. (SADecodeKernels...) twise vector sum), the code is written in a way that
+the compiler can vectorize the code by itself, which
+Utilities and primitives
+C++/cuda Heap, ProductQuantizer, Clustering … often boils down to adding restrict keywords to
+promisethatarraysarenotoverlapping.
+BLAS library Numpy library
+CUDA library (MKL, openblas) The second level leverages SIMD variables and in-
+structions through C++ compiler extensions. Faiss
+Figure9: ArchitectureoftheFaisslibrary. Arrowsindicatedepen- includes simdlib, a collection of classes intended as
+dencies. Bottom: thelibrary’sdependencies. Top: exampleofsoft-
+a layer above the AVX and NEON instruction sets.
+warethatdependsonFaiss,mostnotablyitsextensivetestsuite.
+However, much of the SIMD is done specifically for
+one instruction set – most often AVX – because it is
+as quantizers, refinement indexes or sharded sub- moreefficient.
+indexes. Therefore, an index can be duplicated Thethirdlevelofoptimizationadaptsthedatalay-
+withclone indexandserializedintoasasinglebyte out and algorithms in order to speed up their SIMD
+stream using a single function, write index. It also implementation.The4-bitproductandadditivequan-
+contains the necessary headers so that it can be read tizer implementations are implemented in this way,
+byagenericfunction,read index. inspired by the SCANN library [36]: the layout of
+the PQ codes for several consecutive vectors is in-
+terleaved in memory so that a vector permutation
+The index factory. Index objects can be instanti-
+can be used to perform the LUT lookups of (14)
+ated explicitly in C++ or Python, but it is more com-
+in parallel. This is implemented in the FastScan
+mon to build them with the index factory function.
+variants of PQ and AQ indexes (IndexPQFastScan,
+This function takes a string that describes the index
+IndexIVFResidualQuantizerFastScan,etc.).
+structure and its main parameters. For example, the
+string PCA160,IVF20000_HNSW, PQ20x10,RFlat
+instantiates an IVF index with K IVF = 20000, where GPUFaiss. PortingFaisstotheGPUisaninvolved
+the coarse quantizer is a HNSW index; then the vec- undertakingduetosubstantialarchitecturalspecifici-
+tors are represented with a PQ20x10 product quan- ties. The implementation of GPU Faiss is detailed in
+tizer. ThedataispreprocessedwithaPCAto160di- [47], we summarize the GPU implementation chal-
+mensions, and the search results are re-ranked with lengestherein.
+arefinementindexthatperformsexactdistancecom- Modern multi-core CPUs are highly latency opti-
+putations. Alltheindexparametersaresettoreason- mized: they employ an extensive cache hierarchy,
+able defaults, e.g. the PQ encodes the residual of the branch prediction, speculative execution and out-of-
+vectorsw.r.t. thecoarsequantizationcentroids. Faiss order code execution to improve serial program exe-
+indexes can be used as vector codecs with functions cution. In contrast, GPUs have a limited cache hier-
+sa encode,sa decodeandsa code size. archy and omit many of these latency optimizations.
+They instead possess a larger number of concurrent
+threads of execution (Nvidia’s A100 GPU allows for
+A.3 Optimization
+up to 6,912 warps, each roughly equivalent to a 32-
+Approach to optimization. Faiss aims at being fea- wide vector SIMD CPU thread of execution), a large
+ture complete first. A non-optimal version of all in- numberoffloating-pointandintegerarithmeticfunc-
+dexes is implemented first. Code is optimized only tional units (A100 has up to 19.5 teraflops per sec-
+when it appears that runtime is important for a cer- ond of fp32 fused-multiply add throughput), and a
+tainindex. Thenon-optimizedsettingisusedtocon- massive register set to allow for a high number of
+trolthecorrectnessoftheoptimizedversion. long latency pending instructions in flight (A100 has
+Often, only a subset of data sizes are optimized. 27 MiB of register memory). They are thus largely
+For example, for PQ indexes, only K=28 and K=24 throughput-optimizedmachines.
+and d/M ∈ {2,4,8,16,20} are fully optimized. For The algorithmic techniques used in vector search
+IndexLSH search, we only optimized code sizes 4, 8, can be grouped into three broad categories: dis-
+16and20. Fixingthesesizesallowstowritededicated tancecomputationoffloating-pointorbinaryvectors
+“kernels”, i.e., sequences of instructions without ex- (which may have been produced via dequantization
+plicit loops or tests, that aim to maximize arithmetic from a compressed form), table lookups (as seen in
+throughput. PQdistancecomputations)orscanning(asseenwhen
+21
+
+[[page:22]]
+traversingIVFlists),andirregular,sequentialcompu- iterations of k-means, batch sizes for brute-force dis-
+tationssuchaslinked-listtraversal(asusedingraph- tancecomputations,etc. Defaultparametervaluesare
+basedindices)orrankingthekclosestvectors. settoworkreasonablywellinmostcases.
+Distance computation is easy on GPUs and read-
+ilyexceedsCPUperformance,asGPUsareoptimized Multi-threading. FaissreliesonOpenMPtohandle
+for matrix-matrix multiplication such as that seen in multi-threading. By default, Faiss switches to multi-
+IndexFlat or IVFFlat. Table lookups and list scan- threading processing if it is beneficial, for example,
+ning can also be made performant on GPUs, as it is at training and batch addition time. Faiss multi-
+possibletostagesmalltables(asseeninproductquan- threading behavior may be controlled with standard
+tization) in shared memory (roughly a user-controlled OpenMP environment variables and functions, such
+L1cache)orregistermemoryandperformlookupsin asomp set num threads.
+parallelacrossallwarps.
+When searching a single vector, Faiss does not
+Sequential table scanning in IVF indices requires spawn multiple threads. However, when batched
+loadingdatafrommain(global)memory. Whilemain queries are provided, Faiss processes them in par-
+memoryaccesslatencyishigh, fortablescanningwe allel, exploiting the effectiveness of the CPU cache
+know in advance what data we wish to access. The and batched linear algebra operations. This is faster
+datamovementfrommainmemoryintoregisterscan thancallingsearchfrommultiplethreads. Therefore,
+thus be pipelined or use double buffering, so we can queriesshouldbesubmittedbybatchesifpossible.
+achieveclosetopeakpossibleperformance.
+Selecting the k closest vectors to a query vector by
+A.4 Interfacingwithexternalstorage
+ranking distances on the CPU is best implemented
+withamin-ormax-heap. OntheGPU,thesequential Faiss indexes are based on simple storage structures,
+operations involved in heap operations would simi- mainlystd::vectortomakecopy-constructioneas-
+larlyforcetheGPUintoalatency-boundregime. This ier. ThedefaultimplementationofIndexIVFisbased
+is the largest challenge for GPU implementation of on this storage. However, to give vector database
+vectorsearch, asthetimeneededfortheheapimple- developers more control over the storage of inverted
+mentation is an order of magnitude greater than all lists,Faissprovidestwolower-levelAPIs.
+otherarithmetic. Tohandlethis,wedevelopedanef-
+ficient GPU k-selection algorithm [47] that allows for
+Arbitrary inverted lists. The IVF index uses an
+ranking candidate vectors in a single pass, operating
+abstract InvertedLists object as its storage. The
+atasubstantialfractionofpeakpossibleperformance
+object exposes routines to read one inverted list,
+per memory bandwidth limits. It relies upon heavy
+add entries to it and remove entries. The default
+usage of the high-speed, large register memory on
+ArrayInvertedLists uses in-memory storage. Al-
+GPUs, and small-set bitonic sorting via warp shuffles
+ternatively,OnDiskInvertedListsprovidesmemory-
+withbufferingtechniques.
+mappedstorage.
+Irregular computations such as walking graph
+More complex implementations can access a key-
+structures for graph-based indices like HNSW tend
+valuestorageeitherbystoringtheentireinvertedlist
+toremaininthelatency-bound(duetothesequential
+as a value, or by utilizing key prefix scan operations
+traversal)ratherthanarithmeticthroughputormem-
+like the one supported by RocksDB to treat multiple
+ory bandwidth-bound regimes. Here, GPUs are at
+keys prefixed by the same identifier as one inverted
+a disadvantage as compared to CPUs, and emerging
+list. To this end, the InvertedLists implementation
+techniques such as CAGRA [63] are required to par-
+exposes an InvertedListsIterator and fetches the
+allelize otherwise sequential operations with graph
+codes and ids from the underlying key-value store,
+traversal.
+which usually exposes a similar iterable interface.
+GPU Faiss implements brute-force GpuIndexFlat
+Adding, updating and removing codes can be dele-
+as well as the IVF indices GpuIndexIVFFlat,
+gated to the underlying key-value store. We provide
+GpuIndexIVF ScalarQuantizer and GpuIndexIVFPQ,
+animplementationforRocksDBinrocksdb ivf.
+which are the most useful for large-scale indexing.
+The coarse quantizer for the IVF indices can be on
+Scanner objects. With the abstraction above, the
+either CPU or GPU. The GPU index objects have
+scanning loop is still controlled by Faiss. If the call-
+the same interface as their CPU counterparts and
+the functions index cpu to gpu / index gpu to cpu ing code needs to control the looping code, then the
+Faiss IVF index provides an InvertedListScanner
+convert between them. Multiple GPUs are also
+object. The scanner’s state includes the current
+supported. GPUindexescantakeinputsandoutputs
+query vector and current inverted list. It provides a
+in GPU or CPU memory as input and output, and
+distance to code method that, given a code, com-
+PythoninterfacecanhandlePytorchtensors.
+putes the distance from the query to the decom-
+pressedvector. Ataslightlyhigherlevel,itloopsover
+AdvancedoptionsforFaisscomponentsandindices. asetofcodesandupdatesaprovidedresultbuffer.
+Many Faiss components expose internal parameters Thisabstractionisusefulwhentheinvertedlistsare
+tofine-tunethetrade-offbetweenmetrics: numberof not stored sequentially or fragmented into sub-lists
+22
+
+[[page:23]]
+need exact search HNSWFlat).
+start yes
+results?
+no
+Flat indexes A.7 APIindexoftheFaisslibrary
+will you do a small
+number of queries yes Flat index
+nq < sqrt(N) ? no (or no indexing at all) AsmentionedinSection5.3,mostindexesareacom-
+no bination of a compression method (like PQ) and a
+smal N l d < a t 1 a 0 b k ase? yes spe t e h d a n m a o c re cu im ra p c o y? rtant yes PQd/2fs,RFlat non-exhaustivesearchmethod.Theindexclassnames
+arebuiltasshowninTable4.
+no
+Figure11showsthemostimportantindexclassesin
+Dataset is N < 10M database fixed? NSG,Flat Faiss,groupedbybroadfamilies. Somecombinations
+and fits in memory yes allow slow build yes
+several times time areomittedforbrevity.
+no no HNSW,Flat
+Graph indexes
+IVF indexes Faiss index API. In the following, we list the main
+N < 1M yes flat coa IV rs F e 1 q 6 u k antizer methodsofferedbyFaissindexes,x∈Rn×disalistof
+no
+nvectorsindimensiondrepresentedastherowsofa
+matrix, and I ∈ {0,263 −1}n is a list of 63-bit ids of
+N < 10M yes IVF64k_HNSW
+sizen.
+no
+N < 100M yes IVF256k_HNSW • train(x) perform a training using vectors x to
+have GPU for
+no index training? prepareaddingvectorsofthesamedatadistribu-
+N < 1B yes IVF1M_HNSW
+tiontotheindex;
+use 2-level clustering no
+memory budget is • add(x)addthevectorsxtotheindex,numbered
+M + 16 bytes yes
+per vector train index with GPU sequentially;
+• add with ids(x,I) add the vectors x, identified
+M > d yes M > 4d yes IVFx,Flat bythe63-bitidsI;
+no
+M > 2d yes IVFx,SQfp16 • search(x, k)returntheknearestvectorsofeach
+no no
+ofthequeryvectorsinx;
+M >= d yes IVFx,SQ8
+slow build time ok? yes • range search(x, ε) return all vectors within a
+IVFx,RQM radiusεofeachofthequeryvectorsinx;
+no search speed yes OPQM/2,IVFx,PQM/2x4fs • remove ids(I) remove vectors with ids I from
+more important than
+accuracy? no OPQM,IVFx,PQM theindex;
+• reconstruct batch(I) extract the vectors with
+Figure10:DecisiontreetochooseaFaissindex.Thisisforthecom- idsinI.Itiscalled“reconstruct”becauseformost
+moncaseofEuclideank-nearestneighborsearchonCPU.There-
+indextypes,thereturnedvectorswillbeapprox-
+sultingindexes(inbold)aredefinedbytheirfactorystring(seeAp-
+pendixA.2). imationsoftheoriginalones.
+because of metadata filtering [38]. Faiss is used only Quantizer objects. Table 5 shows the hierarchy of
+toperformthecoarsequantizationandthevectoren- quantizers. Each quantizer can represent the repro-
+coding. duction values of all the quantizers below, but is
+slowertotrainandtoperformassignmentwith.
+The root Quantizer class has the following fields
+A.5 Howtochooseanindex
+andmethods(wherex∈Rn×disalistofvectors):
+Figure 10 shows a decision tree for index types, de-
+• code sizesizeofthecodesitproduces(inbytes);
+pending on database size and memory constraints.
+The decision tree first focuses on the “hard” mem- • train(x) perform a training using vectors x to
+ory constraint, then on secondary trade-offs, like in-
+preparethequantizer;
+dexconstructiontimevs. accuracy.
+• compute codes(x)encodeanvectorstoanarray
+ofsizen×(code size);
+A.6 Faissmetrictypes
+• decode(C) decode the vectors from codes ob-
+Table3liststhemetrictypessupportedinFaiss. They
+tainedwithencoder;
+are inspired by the distance metrics in the Scipy li-
+brary [88]. Only the two first metric types are sup-
+ported for all index types. The others are sup-
+ported only for brute-force computations and non-
+compressedversionsofIVFandHNSW(IVFFlatand
+23
+
+[[page:24]]
+Root of the class hiearchy
+y compressed vectors stored sequentially
+all F lat uncompressed vectors
+nti
+PQnxm compressed with a product quantizer
+e
+u SQb compressed with scalar quantizer
+q
+e additive quantizer family
+s
+d RQnxm
+e
+r LSQnxm
+o
+st PRQpxnxm
+r s PLSQpxnxm
+o
+ct LSHn compressed to binary string
+e
+V ZnLattice Zn lattice compression
+QINCo compression
+s Index built on an inverted file
+e
+x IVFK,Flat uncompressed vectors
+e
+d IVFK,PQn vectors compressed with PQ
+n
+e
+i
+fii IVFK,SQb compressedwithascalarquantizer
+d compressed with an additive quantizer
+e
+rt IVFK,RQnxm (additive quantizer variants)
+e
+v IVFK,LSQnxm
+n
+I
+IVFK,ITQn,SH binary string (with ITQ pre-processing)
+fast-scan version of the previous
+IVFK,PQnx4fs
+e s HNSW graph-based index
+x HNSWL,Flat uncompressed vectors
+e
+d HNSWL,SQb vectors stored with a scalar quantizer
+n
+h
+i
+p
+a NSGL,Flat NSG graph-based index
+r
+G
+Fast-scan index (with SIMD based search)
+st a n PQnx4fs PQ codes
+ac
+Fs Additive quantizer codes
+e z
+e r s IMI2xb, ... I
+C
+V
+o
+F
+a
+c
+rs
+o
+e
+ar
+q
+s
+u
+e
+a
+q
+n
+u
+ti
+a
+ze
+n
+r
+tiz
+b
+e
+a
+r
+s
+f
+e
+o
+d
+r
+o
+a
+n
+n
+a
+in
+d
+v
+d
+e
+i
+r
+ti
+t
+v
+e
+e
+d
+q
+m
+u
+u
+a
+l
+n
+ti
+t
+-
+i
+i
+z
+n
+e
+d
+r
+ex
+a
+s nti
+RCQnxm,
+ra ...
+ou LSCQnxm,
+Cq ...
+s PCAn, ... OPQM, ... transforms the vectors (PCA, OPQ,...)
+e r ... ,RFlat reorders the output of an approximate index
+p
+p
+a dispatches queries to several identical indexes
+r
+w splits the database vectors over several indexes
+x
+e
+d
+n IDMap,... remaps sequential ids to arbitrary ids
+I
+IDMap2,... same, but also allows removing vectors
+returns random search results
+Figure11:HierarchyofthemainindexclassesinCPUFaissforfloating-pointvectors.Foreachclassweindicatethecorrespondingfactory
+string(whenapplicable)andashortexplanation.
+24
+
+[[page:25]]
+Table3: Faissmetrictypesandcorrespondingfunctioninscipy.distance. NotethattheFaissnamesareoftenmoretersethantheir
+scipycounterparts.
+Faissname scipyname definition comments
+METRIC INNER PRODUCT ⟨x,y⟩
+METRIC L2 sqeuclidean ∥x−y∥2 The Eucliean metric can be ob-
+tainedviaasquareroot
+(cid:80)
+METRIC L1 cityblock |x −y |
+i i i
+METRIC Linf chebyshev max |x −y |
+i i i
+METRIC Lp minkowski (cid:80) |x −y |p the parameter p is set via the
+i i i
+metric argparameter
+(cid:80)
+METRIC Canberra canberra |x −y |/(|x |+|y |)
+i i i i i
+(cid:80) (cid:80)
+METRIC BrayCurtis braycurtis |x −y |/ (|x +y |)
+i i i i i i
+METRIC JensenShannon jensenshannon 1(KL(x||m)+KL(y||m)) where m = 1(x+y) and KL is
+2 2
+the Kullback-Leiber divergence
+betweentwodistributions
+(cid:80) (cid:80)
+METRIC Jaccard jaccard min(x ,y )/ max(x ,y )
+i i i i i i
+METRIC NaNEuclidean |V|(cid:80) (x −y )2 V = {i ∈ {1..d} st. x ̸= NaN∧
+d i∈V i i i
+x ̸=NaN}
+i
+Table 4: A few combinations of pruning approaches (rows) and
+compression methods (columns). In the cells: the corresponding
+indeximplementations.
+Noencoding PQencoding scalarquantizer
+Flat IndexFlat IndexPQ IndexScalarQuantizer
+IVF IndexIVFFlat IndexIVFPQ IndexIVFScalarQuantizer
+HNSW IndexHSNWFlat IndexHNSWPQ IndexHNSWScalarQuantizer
+Table5: Thehierarchyofquantizers. Eachquantizercanrepresent
+thesetofreproductionvaluesofthequantizersbelowit.
+Typeofquantizer class
+Vectorquantizer
+Additivequantizer AdditiveQuantizer
+Product-additivequantizer ProductAdditiveQuantizer
+Productquantizer ProductQuantizer
+Scalarquantizer ScalarQuantizer
+Binarization
+25

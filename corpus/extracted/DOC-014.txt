@@ -1,0 +1,1811 @@
+[[page:1]]
+HalluScope: Fine-grained Hallucination Diagnosis for Multimodal
+Large Language Models
+WeilinJin MingyuWang WenboLi∗
+PekingUniversity PekingUniversity JoyFutureAcademy
+Beijing,China Beijing,China Beijing,China
+HaoyangHuang YifanWu† YingLi†
+JoyFutureAcademy PekingUniversity PekingUniversity
+Beijing,China Beijing,China Beijing,China
+GangHuang ZhonghaiWu
+PekingUniversity PekingUniversity
+Beijing,China Beijing,China
+Abstract
+1. Hallucination Detection & Classification
+AlthoughMultimodalLargeLanguageModelshaveachievedstrong The image shows the <Object>San Agustin Church</Object>,a
+famous historical landmark. This structure is located in
+performanceacrossawiderangeofvision-languagetasks,they <Knowledge_Error>Manila, Philippines</Knowledge_Error>, and is a
+stillsufferfromhallucinations,wheremodeloutputsbecomeincon- <Knowledge_Error> UNESCO World Heritage Site
+</Knowledge_Error>. The <Color_Attribute>red
+sistentwiththevisualcontent,textualcontext,orcommonsense brick</Color_Attribute> architecture features a grand staircase
+positioned <Spatial_Relation>behind the main
+knowledge.Existingstudiesprimarilyaddressthisproblemthrough Basic Information facade</Spatial_Relation>. The architecture and surrounding
+environment are characteristic of <Knowledge_Error>Victorian coarse-graineddetection.However,theseapproachesoftenprovide Gothic style</ Knowledge_Error>.
+insufficientdiagnosticinformationforunderstandinghallucina- Question: Answer: <Knowledge_Error>A. Manila</Knowledge_Error>
+Where is it located?
+tiontypesandsupportingdownstreamhallucinationmitigation.To
+bridgethisgap,weproposefine-grainedhallucinationdiagnosis Manila 2. Hallucination Explanations Generation
+forMLLMs,anewunifiedtaskthatjointlyperformshallucination The structure is the Ruins of St. Paul's, located in Macau, China.
+Diagnose It is not a UNESCO World Heritage Site. The architecture is
+detection,classification,andinterpretableexplanationgeneration. Baroque, not Victorian Gothic, and the staircase is in front of the
+Wedevelopanautomateddatagenerationpipelineandconstruct Macao f c a o c lo a r d . e, notbehind it. The bricks are not red but a light stone
+HalluScope-30K, a large-scale diagnostic dataset covering eight Object Knowledge Color Spatial Logical
+sourcesandfivetaskcategories.Basedonthisdataset,wedesign
+a multi-granular joint reward function and train two diagnosis Figure1:Exampleoffine-grainedhallucinationdiagnosis.
+models,HalluScope-4BandHalluScope-8B,whichachievestate-of- Givenanimage-questionpairandanMLLMresponse,HalluS-
+the-artperformanceonboththeMHALObenchmarkandourfine- cope(1)detectshallucinatedspanswithtypeclassification,
+grainedhallucinationclassificationbenchmark.Notably,detection and(2)generatesexplanationswithcorrectionsuggestions.
+andclassificationaremutuallybeneficialunderjointoptimization.
+Furthermore, diagnosis-driven feedback experiments show that
+thefine-graineddiagnosticexplanationsproducedbyourmodel tasks,includingimageunderstanding[6],visualquestionanswer-
+effectivelyguidetargetmodelstocorrecttheirhallucinations,with ing[1,21],andvisualreasoning[33,43].Despitetheseadvances,
+fulldiagnosissubstantiallyoutperformingallbaselinesonboth hallucinationremainsapersistentchallenge,wheremodeloutputs
+Qwen3-VL-8B-InstructandLLaVA-1.5-7B. becomeinconsistentwiththevisualcontent,textualcontext,or
+commonsenseknowledge[3,26,34].Sucherrorsunderminethe
+CCSConcepts reliabilityofMLLMoutputs,particularlyinhigh-stakesscenarios
+such as healthcare, autonomous driving, and scientific analysis
+•Computingmethodologies→Computervisionproblems.
+[9,24].Consequently,identifyingandmitigatinghallucinationshas
+becomeacriticalchallengeforMLLMs.
+Keywords
+Existingstudiesprimarilyaddresshallucinationthroughcoarse-
+MultimodalLargeLanguageModels,HallucinationDiagnosis,Re-
+graineddetectionorfeedback,typicallyformulatingitasabinary
+inforcementLearning,HallucinationMitigation
+classification problem [7, 49, 53]. However, such methods only
+determine whether a response contains hallucinations, without
+1 INTRODUCTION localizinghallucinatedspans,identifyingtheirtypes,orexplaining
+MultimodalLargeLanguageModels(MLLMs)[2,14,25,55]have theunderlyingcauses,therebyprovidinginsufficientdiagnostic
+achievedstrongperformanceacrossawiderangeofvision-language informationforeffectivehallucinationanalysisandmitigation.
+To address these limitations, recent work has explored Fine-
+∗Projectleader. grainedHallucinationDetection(FHD)[4],whichlocalizeshallu-
+†Correspondingauthor. cinatedspanswithintheresponseatthetokenlevel.Compared
+6202
+luJ
+32
+]VC.sc[
+1v50112.7062:viXra
+
+[[page:2]]
+Conference’17,July2017,Washington,DC,USA WeilinJin,MingyuWang,WenboLi,HaoyangHuang,YifanWu,YingLi,GangHuang,andZhonghaiWu
+withcoarse-grainedmethods,FHDprovidesmoreinformativesig- • Wedevelopanautomateddatagenerationpipelineandcon-
+nalsforhallucinationanalysis,enablinghigh-qualitydataannota- structHalluScope-30K,alarge-scaledatasetthatprovides
+tion[16,49],modelalignment[12],andfeedbackgeneration. fine-grainedsupervisionforhallucinationdiagnosis.
+Despitetheseadvances,existingFHDmethodsstillfocuspri- • Wedesignamulti-granularjointrewardfunctionthaten-
+marilyonspan-leveldetection,withoutfurtheranalyzingthetypes ablesdetectionandclassificationtobenefiteachotherduring
+orcausesofidentifiedhallucinations.Yetdifferenthallucination training,andtraintwodiagnosismodels,HalluScope-4B
+typesarisefromfundamentallydifferentfailuremechanisms[31] andHalluScope-8B.
+andrequiredistinctmitigationstrategies.Forinstance,Percep- • Weconstructafine-grainedhallucinationclassificationbench-
+tualHallucinationssuchasobjectrecognitionerrorscanoften markandachievestate-of-the-artperformanceonboththe
+be mitigated by re-examining the images, whereas Reasoning MHALObenchmarkandourbenchmark.Wefurtherdemon-
+Hallucinationsinvolvingspatialreasoningorcomplexsemantic stratethatincreasingdiagnosticgranularityprogressively
+relationsrequiremoresophisticatedverificationmechanisms.Fine- improveshallucinationmitigationacrosstwotargetmodels.
+grainedhallucinationclassificationcanrevealsucherrorpatterns,
+enablingtargetedanalysisandmoreeffectivemitigation.Beyond 2 RELATEDWORK
+classification,interpretableexplanationsthatdescribewhyahal- 2.1 HallucinationinMLLMs
+lucinationoccursandhowitmaybecorrectedprovideactionable
+Hallucinationinmultimodallargelanguagemodels(MLLMs),where
+guidancefordownstreamcorrection.Therefore,hallucinationdetec-
+thegeneratedcontentisinconsistentwiththevisualinput,textual
+tion,classification,andexplanationgenerationarenotindependent
+context,orestablishedworldknowledge[8,26],hasattractedin-
+butmutuallybeneficial,makingtheirjointoptimizationessential
+creasingattention.InMLLMs,suchinconsistenciesaretypicallyat-
+forbothcomprehensivediagnosisandeffectivemitigation.
+tributedtostronglanguagepriorsthatencouragefluentbutvisually
+Motivatedbytheseobservations,weproposefine-grainedhal-
+ungroundedcontinuations,andstatisticalbiasesfrompre-training
+lucinationdiagnosisforMLLMs,ataskthatunifieshallucination
+datathatleadmodelstorelyonspuriouscorrelations[23].
+detection,classification,andinterpretableexplanationgeneration.
+Priorstudieshaveexploredhallucinationdetectionbyidentify-
+Tosupportthistask,wedevelopamultimodalhallucinationdiag-
+inginconsistenciesbetweenmodeloutputsandvisualortextualev-
+nosisdatagenerationpipelineandconstructHalluScope-30K,a
+idence,progressingfromcoarse-grainedresponse-leveljudgments
+large-scaledatasetforfine-grainedhallucinationdiagnosis.Based
+tofiner-grainedanalysissuchasfactualconsistencyassessment,
+onthisdataset,wedesignamulti-granularjointrewardfunction
+claimverification,andspan-leveldetection[7,35,41,50,52].Inpar-
+tojointlyoptimizehallucinationdetectionandclassification,and
+allel,anotherlineofresearchfocusesonhallucinationmitigation
+traintwodiagnosismodels,HalluScope-4BandHalluScope-8B.
+throughtraining-timealignment,externalverification,inference-
+Sincehallucinationdiagnosisisinherentlyamulti-stagetask,
+timedecodingcontrol,andinternalmodelediting[23,27,38,42,47–
+weevaluateeachstageindependently.Forfine-grainedhallucina-
+49,54,56].Whileeffectivemitigationoftenreliesonaccuratedetec-
+tiondetection,weevaluateourmodelsontheMHALObenchmark.
+tionsignals,mostexistingmethodstreatdetectionandmitigation
+ComparedwithrepresentativeMLLMsandspecializedhallucina-
+asseparatestageswithoutprovidingunifieddiagnosticfeedback
+tiondetectionbaselines,ourmodelsachievestate-of-the-artper-
+thatintegrateserrorlocalization,typeclassification,andcausalex-
+formanceonmultiplesubsets,reachinganaverageF1 of 64.03
+M
+planation.Ourworkaddressesthisgapbyproposingfine-grained
+andF1 of57.57.Forhallucinationclassification,wefurthercon-
+IoU
+hallucinationdiagnosisasaunifiedtask.
+structafine-grainedbenchmarkwith733samplescoveringfive
+taskcategoriesincludinggeneralperception,mathematicalreason-
+2.2 Fine-grainedHallucinationDetectionand
+ing,OCR,spatialreasoning,andhallucinationdetection.Onthis
+MitigationforMLLMs
+benchmark,ourmethodalsoachievesstate-of-the-artperformance,
+withF1 of51.66andF1 reaching59.60.Forhallucination RecentstudiesonhallucinationinMLLMshaveincreasinglymoved
+Macro Micro
+mitigation,weconductdiagnosis-drivenfeedbackexperimentson fromcoarse-grainedresponse-leveljudgmenttowardfine-grained
+twotargetmodels.Theresultsrevealthatincreasingdiagnostic analysis,whichaimstoprovidemoreprecisesupervisionforhal-
+granularity progressively improves mitigation effectiveness: on lucinationdetectionandmitigation.Earlyeffortsmainlydecom-
+Qwen3-VL-8B-Instruct,fulldiagnosisraisesaccuracyfrom68.76% posemodeloutputsintosmallertextualorsemanticunits,suchas
+to81.17%,andonLLaVA-1.5-7B,from33.02%to50.34%,substan- clauses,sentences,orclaims.Forexample,M-HalDetect[16]per-
+tiallyoutperformingdetection-onlyandself-correctionbaselines. formsclause-levelhallucinationdetection,Xiaoetal.[46]operate
+Theseresultscollectivelyconfirmthatdetection,classification,and atthesentencelevel,andPelican[35]verifieshallucinationsatthe
+explanationaremutuallybeneficial:jointoptimizationimproves claimlevelthroughclaimdecompositionandgrounding.
+eachindividualstage,andricherdiagnosisleadstomoreeffective Morerecentworkpushesfine-grainedhallucinationdetection
+mitigation.Ourcontributionsareasfollows: and mitigation toward token-level modeling [4, 10–12, 44, 57].
+Whitehead et al. [44] formulate hallucination detection as a se-
+• Weproposeanewtask,fine-grainedhallucinationdi- quencelabelingproblemtodirectlylocalizehallucinatedcontent
+agnosisforMLLMs,whichunifieshallucinationdetection, atfinegranularity.MHALO[4]furthertrainsadedicatedmodel
+classification,andinterpretableexplanationgeneration,and fortoken-levelhallucinationdetectionwithcoarse-grainedtype
+findthatthethreestagesaremutuallybeneficialunderjoint classification,butdoesnotprovidefine-grainedclassificationor
+optimization. diagnosticexplanationsfordownstreammitigation.Inaddition,
+
+[[page:3]]
+HalluScope:Fine-grainedHallucinationDiagnosisforMultimodalLargeLanguageModels Conference’17,July2017,Washington,DC,USA
+MetaToken[11],TLDR[12],andECD[10]estimatetoken-levelhal- definedas
+l
+r
+u
+e
+c
+w
+in
+ar
+a
+d
+tio
+m
+n
+o
+l
+d
+ik
+el
+e
+i
+l
+n
+ih
+g
+o
+,a
+o
+n
+d
+d
+d
+d
+u
+e
+ri
+c
+n
+o
+g
+di
+g
+n
+e
+g
+n
+-
+e
+ti
+r
+m
+at
+e
+io
+p
+n
+ro
+th
+b
+r
+a
+o
+b
+u
+il
+g
+it
+h
+y
+m
+es
+e
+t
+t
+i
+a
+m
+-c
+a
+l
+t
+a
+io
+ss
+n
+i
+,
+fi
+r
+c
+e
+a
+s
+t
+p
+io
+e
+n
+c-
+, |𝑝 𝑖|=𝑒
+𝑖
+𝑝 −𝑠
+𝑖
+𝑝 +1, |𝑔 𝑗|=𝑒𝑔
+𝑗
+−𝑠𝑔
+𝑗
++1.
+tively.Meanwhile,MTRE[57]suggeststhathallucinationsignals Wefurtheruse𝑇(𝑝 𝑖) and𝑇(𝑔 𝑗) todenotethetokensetscon-
+mayemergeprogressivelyacrossmultipletokensorsemanticlevels. tainedinthepredictedspan𝑝 𝑖 andtheground-truthspan𝑔 𝑗,re-
+Overall,fine-grainedhallucinationsignalsareincreasinglyinte- spectively.Theirtokenoverlapisdefinedas:
+gratedwithdownstreammitigation.However,existingmethods
+|𝑇(𝑝 𝑖)∩𝑇(𝑔 𝑗)|,
+primarilyaddressspan-levellocalization,whilehallucinationclas-
+sificationremainscoarse-grainedanddiagnosticexplanationsare whichcountsthenumberofsharedtokensbetweenthetwospans.
+largelyabsent,limitingtheactionablevalueofdetectionoutputs.
+4 METHOD
+3 PRELIMINARY Figure2presentstheHalluScopeframework.Startingfromeight
+3.1 HallucinationDiagnosisTaskDefinition datasetsacrossfivetaskcategories,theframeworkgeneratesmodel
+responsesandconstructsfine-grainedhallucinationlabelsthrough
+Weformulatefine-grainedhallucinationdiagnosisasaunifiedtask
+twocomplementarystrategies:hallucinationinjectionforcorrectly
+thatencompasseshallucinationdetection,hallucinationclassifica-
+answeredsamplesandhallucinationannotationforincorrectlyan-
+tion,andinterpretableexplanationgeneration.Givenamultimodal
+sweredones.Aftermulti-stagequalitycontrol,theframeworkyields
+inputconsistingofanimage,atextualquery,andthemodel’sre-
+HalluScope-30Kwithnearly30,000diagnosticexamples.Basedon
+sponse,thetaskaimstolocalizehallucinatedspansintheresponse,
+thisdataset,wedesignamulti-granularjointrewardfunctionand
+classifyeachspanintoapredefinedhallucinationtype,andgenerate
+traintwodiagnosismodels:HalluScope-4BandHalluScope-8B.
+interpretableexplanationsthatdescribethecausesofhallucination
+andsuggestpossiblecorrectionstrategies. 4.1 PipelineofDataGeneration
+Specifically,forhallucinationdetection,themodelidentifiesand
+4.1.1 DataCollection. TheHalluScopeframeworkbeginswiththe
+markshallucinatedspanswithintheresponsethroughstructured
+collectionofeightdatasetsspanningfivetaskcategories:(1)general
+XMLannotations.Forhallucinationclassification,weadoptthe
+perception:MMBench[28]andMMStar[5];(2)mathematicalreason-
+taxonomyproposedinMHALO[4],whichorganizeshallucinations
+ing:Geo170K[13]andMathV360K[36];(3)ocr:OCRBench[29];(4)
+intotwohigh-levelcategories:perceptionandreasoning.Perception-
+spatialreasoning:RealWorldQA[45];and(5)hallucinationdetection:
+levelhallucinationsarisefromerrorsinvisualunderstandingor
+M-HalDetect[16]andRLHF-V[49].Sincethesedatasetsdifferin
+informationextractionfromimages,whereasreasoning-levelhal-
+formatandannotation,wefirstperformstandardizedpreprocess-
+lucinationsoriginatefromincorrectinferenceorlogicalreasoning
+ing:unifyingdatafields,removingduplicates,andfilteringinvalid
+basedonperceivedinformation(thefulltaxonomywith12fine-
+samples(e.g.,missinganswers).Eachprocessedsamplefollowsthe
+grainedtypesisprovidedinAppendix).Forexplanationgeneration,
+themodelproducesnaturallanguagedescriptionsthatexplainwhy notation𝑥 𝑘 definedinSection3.2.
+Giventheunifieddataset,weusethebasemodel(beforepost-
+eachhallucinationoccursandsuggesthowitmaybecorrected.
+training)togenerateresponsesforeachsample.Sincetheoriginal
+ground-truthanswersaretypicallybriefandlacksufficientdetail
+3.2 HallucinationDiagnosisFormulation
+forfine-grainedannotation,weregeneratelonger,moreinforma-
+Notationfordataconstruction:Inthedatagenerationpipeline, tiveresponsestoproviderichercontextforhallucinationdiagnosis.
+eachsampleisrepresentedas𝑥
+𝑘
+=(𝑖
+𝑘
+,𝑑
+𝑘
+,𝑞
+𝑘
+,𝑔
+𝑘
+,𝑜
+𝑘
+,𝑦
+𝑘
+∗),where𝑖
+𝑘 Unlikeapproachesthatrelyonstrongclosed-sourcemodelstoex-
+denotesthevisualinput,𝑑 𝑘 thedatasetsource,𝑞 𝑘 thequestion, pandground-truthanswers,constructinghallucinationdatafrom
+and𝑔 𝑘 theground-truthanswer.Given(𝑖 𝑘 ,𝑞 𝑘),thebasemodelfirst thebasemodel’sactualoutputsbetterpreservestherealismofsyn-
+generatesaresponse𝑜 𝑘 ∼𝑝 𝜃(·|𝑖 𝑘 ,𝑞 𝑘).Basedontheconsistency thesizedsamples,astheyreflectthemodel’sgenuinehallucination
+between𝑜 𝑘 and𝑔 𝑘,theresponseisfurtherprocessedthroughhallu- behaviorsratherthanartificiallysimulatedones.Thisalsoimproves
+cinationinjectionorhallucinationannotationtoproducethefinal datadiversity,sincethemodelexhibitsvariedhallucinationpatterns
+hallucination-diagnosedresponse𝑦 𝑘 ∗.Eachdiagnosedspanin𝑦 𝑘 ∗ is acrossdifferenttasksandsamples.
+assignedoneof𝐶predefinedhallucinationtypes.
+Notation for evaluation: To evaluate hallucination diagnosis, 4.1.2 HallucinationLabelGeneration. Afterobtainingmodelre-
+wedenotethesetofpredictedspansas𝑃 = {𝑝 𝑖}𝑛
+𝑖=1
+andtheset sponses,weconstructfine-grainedhallucinationlabelsbypartition-
+ofground-truthspansas𝐺 ={𝑔 𝑗}𝑚
+𝑗=1
+,where𝑛and𝑚denotethe ingsamplesbasedontheconsistencybetweenthemodelresponse
+numbersofpredictedandground-truthspans,respectively.Each andtheground-truthanswer.Forcorrectlyansweredsamples,
+spancorrespondstoacontiguoustokensegmentintheresponse weemployaclosed-sourcemodel(Gemini-3-Pro)toperformhallu-
+andisrepresentedbyitsstartandendboundaries: cinationinjection:analyzingtheoriginalresponseandintroducing
+targetedmodificationstailoredtospecifichallucinationtypeswhile
+𝑝 𝑖 =[𝑠 𝑖 𝑝,𝑒 𝑖 𝑝 ], 𝑔 𝑗 =[𝑠𝑔 𝑗 ,𝑒𝑔 𝑗 ], maintainingcontextualcoherence.Theinjectedhallucinationsare
+constrainedtobediverseacrosstypesandnaturalwithincontext,
+where𝑠 𝑖 𝑝 and𝑒 𝑖 𝑝 denote the start and end positions of the𝑖-th ensuringbroadcoverageofthehallucinationtaxonomy.Forin-
+predictedspan,and𝑠𝑔
+𝑗
+and𝑒𝑔
+𝑗 denotethestartandendpositions correctlyansweredsamples,weemploythesameclosed-source
+ofthe 𝑗-thground-truthspan.Accordingly,thespanlengthsare modeltoperformhallucinationannotation:localizinghallucinated
+
+[[page:4]]
+Conference’17,July2017,Washington,DC,USA WeilinJin,MingyuWang,WenboLi,HaoyangHuang,YifanWu,YingLi,GangHuang,andZhonghaiWu
+HalluScope: Fine-grained Hallucination Diagnosis framework
+1 2
+Hallucination
+Data Collection
+Label Generation
+Ground-Truth
+General Mathematics Answer Yes Ha I l n lu je c c in t a io t n ion Inj D e a c t t a ed
+MMStar MathV360K Correct？
+MMBench Geo170K Unified Format Base Model Answer No H A al n lu n c o i t n a a t t io io n n Ann D o a t t a a ted
+Hallucination Others
+RLHF-V OCRBench 3 4
+M-HalDetect RealWorldQA Sample Quality Post Training
+1.Supervised Fine-Tuning
+Control Hallucination Data
+Question: …
+Answer: … 2.Reinforcement Learning
+Choices: ….
+Sample1: Q1 A1 Format Normalization norm L a a l b iz e a l tion T A e s x s t e s Q s u m a e li n t t y H V C a o e l n r lu i s f c is i i c n t a e a t n t i i c o o y n n ……
+Sample2: Q1 A1 Duplicate Sample
+Removal Dataset Model Output 1 Output n
+Invalid Sample Question: … The image shows the <Object>San Agustin GRPO
+Filtering Answer: (empty) C T h h u is r c s h tr </ u O ct b u j r e e c t is > , lo a c f a a t m ed o u i s n h <K is n t o o w ri le ca d l g l e a _ n E d r m r a o r r k >, . Reward Function:
+Philippines</Knowledge_Error>… 𝑹=𝑹𝒇×(𝟏−𝝀𝑹𝒅𝒆𝒕+𝝀𝑹𝒄𝒍𝒔)
+Figure2:OverviewoftheHalluScopedatagenerationpipelineandtrainingpipeline.
+spansintheresponseandassigningcorrespondingtypelabels.Since feedback generation. This stage serves as a cold-start initializa-
+theseresponsesalreadycontaingenuinehallucinationsproduced tionforsubsequentreinforcementlearning:themodellearnsto
+bythebasemodel,annotationdirectlycapturesrealistichalluci- followtherequiredoutputformatandacquirespreliminaryhallu-
+nationbehaviorswithoutartificialsimulation.Bycombiningboth cinationdetectionandclassificationabilities,reducingineffective
+strategies,wepreservehallucinationsamplesfromgenuinemodel explorationduringRLoptimization[51].
+outputswhilealsosynthesizingnewonesfromcorrectresponses,
+4.2.2 ReinforcementLearning. Inthereinforcementlearningstage,
+jointlyyieldingfine-grainedsupervisionsignalsthatspecifyboth
+weapplyGroupRelativePolicyOptimization(GRPO)[17]tofurther
+hallucinationlocationsandtypes.
+optimizetheSFT-initializedmodel.Foreachsample𝑥 𝑘,thepolicy
+4.1.3 SampleQualityControl. Finally,weperformsystematicqual- generates𝐾 candidate outputs {𝑦 𝑘}
+𝑘
+𝐾
+=1
+, each scored by a multi-
+itycontrolthroughathree-stagepipeline:(1)labelnormalization, granularreward𝑅(𝑦 𝑘) thatjointlyevaluatesformatcompliance,
+whichmapsnon-standardhallucinationtypelabelstothestandard- span-leveldetectionquality,andtypeclassificationaccuracy.Using
+izedsetof12hallucinationtypesthroughrule-basedmappings(e.g., thenotationdefinedinSection3.2,therewardisformulatedas:
+casenormalizationandsynonymresolution);(2)textqualityassess-
+ment,whichusesanLLM-as-Judgemethodtoscoreclarity,fluency, 𝑅(𝑦 𝑘)=I
+format
+((1−𝜆)𝑟
+det
+(𝑦 𝑘)+𝜆𝑟
+cls
+(𝑦 𝑘)) (1)
+andcoherence,retainingonlysamplesabovepredefinedthresholds;
+and(3)hallucinationconsistencyverification,whichchecksformat FormatReward.I format isabinaryindicatorfunctionthatequals1
+correctness,typevalidity,semanticplausibility,andcontextualcon- onlywhenthediagnosticoutputsatisfiesallpredefinedformatting
+sistencyofthegeneratedhallucinationlabels.Onlysamplespassing constraints.Specifically,theentireresultmustbeenclosedwithin
+allthreestagesareincludedinthefinaldataset.
+<Tagged_Text>tags,andeachhallucinatedspanmustbeannotated
+Throughthispipeline,weconstructHalluScope-30K,containing
+using<hallucination type="TYPE">tags.Alltagsmustcomply
+nearly30,000samplesacrossfivetaskcategoriesandeightsources,
+withXMLsyntaxrules,andeachtypeattributemustbelongtothe
+eachwithfine-grainedhallucinationdiagnosislabels.Datasetsta- predefinedhallucinationtypes.Thisgatingmechanismensuresthat
+tisticsandqualitycontrolcriteriaareprovidedinAppendix. onlystructurallyvalidoutputsreceivepositivediagnosticrewards,
+withtheprecedingSFTstageprovidingawarmstartforformat
+4.2 TrainingofHalluScopeModels compliance.
+HallucinationDetectionReward.Hallucinationdetectionre-
+BasedonHalluScope-30K,wetraintwodiagnosismodelsthrougha
+ward evaluates the model’s ability to detect hallucinations and
+two-stageparadigm:supervisedfine-tuning(Section4.2.1)followed
+servesasthemostcriticalcomponentoftheoverallrewardfunc-
+byreinforcementlearning(Section4.2.2).
+tion.Sincethefine-grainedhallucinationdiagnosistaskrequires
+4.2.1 SupervisedFine-Tuning. Inthesupervisedfine-tuningstage, themodelnotonlytoidentifyallhallucinations,butalsotolocalize
+weuseHalluScope-30Kassupervisiontotrainthebasemodelwith eachhallucinatedspanaccurately,thedetectionrewardisdesigned
+LoRA[18],enablingittogeneratestructureddiagnosticoutputs tojointlyconsiderbothcoverageandprecisionofthepredicted
+thatunifyhallucinationdetection,classification,andinterpretable spans.Tothisend,wedefineacompositedetectionrewardas:
+
+[[page:5]]
+HalluScope:Fine-grainedHallucinationDiagnosisforMultimodalLargeLanguageModels Conference’17,July2017,Washington,DC,USA
+theoriginalPM𝑅onlyconsiderstokenoverlap,whichmayproduce
+𝑟
+det
+(𝑦 𝑘)=𝑟
+content
+(𝑦 𝑘)·𝑟
+count
+(𝑦 𝑘) (2) incorrectmatcheswhenidenticaltokensappearatdifferentposi-
+Here𝑟 measuresspanmatchingqualityand𝑟 penalizes tions.Wethereforeintroduceapositionalconsistencyconstraint:a
+content count
+deviationsinthepredictednumberofspans.Specifically,𝑟 partialmatchisvalidonlywhenthepredictedandground-truth
+content
+computestheaverageIoUoveroptimalspanpairsmatchedbythe
+spansoverlapintheirpositionalboundaries.TherefinedPM𝑅 is
+definedas:
+Hungarianalgorithm(followingthenotationinSection5.1.1):
+1 ∑︁
+Th
+w
+e
+h
+co
+er
+u
+e
+n
+𝑀
+t
+ˆ
+r
+m
+ew
+a
+𝑟
+a
+x
+c
+r
+i
+o
+m
+d
+nt
+i
+e
+𝑟
+z
+n
+c
+e
+t
+o
+s
+(
+u
+𝑦
+n
+t
+𝑘
+t
+h
+)
+e
+m
+=
+t
+e
+o
+a
+t
+|
+s
+𝐺
+a
+u
+l
+|
+r
+I
+e
+o (𝑖
+s
+U ,𝑗)
+t
+a ∈
+h
+c 𝑀
+e
+ˆ ro
+I
+c
+o
+s
+o
+s
+U
+n
+a
+(
+s
+l
+𝑝
+i
+l
+s
+𝑖
+m
+,
+te
+𝑔
+a
+n
+𝑗
+t
+)
+c
+c
+y
+he
+b
+d
+et
+s
+w
+pa
+e
+n
+en
+pa
+t
+i
+h
+(
+r
+3
+e
+s
+)
+. PM𝑅(𝑔 𝑗)=
+
+0
+1
+|𝑇
+,
+,
+(𝑝 | 𝑖 𝑇 ) ( ∩ 𝑔 𝑗 𝑇 )| (𝑔 𝑗)| , ∃
+o
+∃
+t
+𝑝
+𝑝
+h
+𝑖
+𝑖
+er
+∈
+∈
+w
+𝑃
+𝑃
+is
+,
+,
+e
+𝑝
+m
+.
+𝑖
+a
+=
+x(
+𝑔
+𝑠 𝑖
+𝑗
+𝑝
+,
+,𝑠𝑔 𝑗 )≤min(𝑒 𝑖 𝑝,𝑒𝑔 𝑗 ),
+
+numberofpredictedandground-truthhallucinatedspans.Since (6)
+relyingsolelyoncontentmatchingmaynotsufficientlypenalize If multiple 𝑝 𝑖 overlap with𝑔 𝑗, the best-scoring one is selected.
+modelsthatproducetoomanyortoofewspans,weintroducea Theprecision-basedscorePM𝑃 isdefinedanalogously.Theover-
+Gaussian-kernelsmoothingfunctionthatyieldsamaximumreward allrecallandprecisionareRec𝑀 =
+𝑚
+1 (cid:205) 𝑗PM𝑅(𝑔 𝑗) andPrec𝑀 =
+of1whenthecountsmatchexactlyanddecayssmoothlyasthe
+𝑛
+1 (cid:205) 𝑖PM𝑃(𝑝 𝑖),andF1
+M
+istheirharmonicmean.
+discrepancyincreases: Token-awareIoUMetricF1 .WhileF1 capturesinclusion
+IoU M
+(cid:18) (𝑛−𝑚)2(cid:19) relationshipsbetweenspans,itdoesnotquantifythecontent-level
+𝑟 count (𝑦 𝑘)=exp − 𝑚 , (4) overlap.WerefinetheF1 IoU metricfromMHALObyincorporating
+token-contentconsistencyintotheIoUcomputation.Thetoken-
+where𝑛=|𝑃|and𝑚=|𝐺|denotethenumbersofpredictedand
+awareIoUiscomputedonlywhenpositionaloverlapexists:
+ground-truthhallucinatedspans,respectively.
+H a
+h
+g
+a
+a n
+ll
+l o
+u
+lu s
+c
+i
+i
+c s
+n
+i
+a
+t n a
+t
+a
+i
+s
+o
+t k
+n
+i , o h
+d
+n a
+e
+l
+t
+C l
+e
+u l
+c
+c a
+t
+i
+i
+s n
+o
+s a
+n
+i t fi
+.
+i
+T
+o c n a
+h
+t
+e
+c i
+r
+l o
+e
+a n
+f
+s
+o
+s
+r
+R ifi
+e
+e
+,
+c w
+w
+at a
+h
+io r
+e
+n d
+n
+. i
+d
+s I
+e
+n b
+si
+t u
+g
+h i
+n
+l e t
+in
+h u
+g
+a p l o l
+t
+u
+h
+n c
+e
+i s n
+c
+u
+l
+a c
+a
+t c
+s
+i e o
+s
+s
+i
+n
+fi
+sf
+c
+d u
+a
+i l -
+- IoU t (𝑝 𝑖 ,𝑔 𝑗)=
+ |
+|
+𝑇
+𝑇
+(
+(
+𝑝
+𝑝
+𝑖
+𝑖
+)
+)
+∩
+∪
+𝑇
+𝑇
+(
+(
+𝑔
+𝑔
+𝑗
+𝑗
+)
+)
+|
+|
+, max(𝑠
+𝑖
+𝑝,𝑠𝑔
+𝑗
+)≤min(𝑒
+𝑖
+𝑝,𝑒𝑔
+𝑗
+),
+(7)
+tion reward, we still take the IoU-based matching result as the 0, otherwise.
+foundation.Afterobtainingtheoptimalmatching𝑀ˆ,wefurther 
+Thisformulationreducesoverestimationfromboundarycoin-
+examinewhetherthehallucinationtypelabelsofeachmatched
+cidencewhenpredictedandground-truthspanshavelittleactual
+pairareconsistent,andrewardtheclassificationresultaccordingly.
+Basedonthisidea,theclassificationrewardisdefinedasfollows: tokenoverlap.AmatchisvalidonlywhenIoU t (𝑝 𝑖 ,𝑔 𝑗)≥𝛿(𝛿 =0.5).
+Theoptimalone-to-onematchingisobtainedviatheHungarian
+1 ∑︁ algorithm[22]:
+𝑟 cls (𝑦 𝑘)= |𝐺| IoU(𝑝 𝑖 ,𝑔 𝑗)·1[𝑡 𝑖 =𝑡 𝑗] (5)
+(𝑖,𝑗)∈𝑀ˆ 𝑀ˆ = max ∑︁ 1 (cid:0) IoU t (𝑝 𝑖 ,𝑔 𝑗)≥𝛿(cid:1), (8)
+Thismulti-granularrewarddesignprovidesfine-grainedand 𝑀∈M (𝑖,𝑗)∈𝑀
+stableoptimizationsignalsforhallucinationdiagnosis.Specifically,
+whereMdenotesthesetofallone-to-onebipartitematchings
+theformatrewardenforcesstructurallyvalidoutputs,thedetection between𝑃 and𝐺:
+rewardpromotesaccuratehallucinationspanlocalization,andthe
+classificationrewardencouragesdistinguishingfine-grainedhallu-
+cinationtypes.Comparedwithrewarddesignsbasedsolelyonfinal M = (cid:8)𝑀 ⊆𝑃×𝐺 (cid:12) (cid:12)∀(𝑝 𝑖 ,𝑔 𝑗),(𝑝 𝑖′ ,𝑔 𝑗′) ∈𝑀, 𝑖 ≠𝑖′, 𝑗 ≠ 𝑗′(cid:9). (9)
+matchingresults,thishierarchicalformulationjointlyoptimizes
+ThefinalscoreisF1 =2|𝑀ˆ|/(|𝑃|+|𝐺|),whichbalancesthe
+outputstructure,spanlocalization,andtypeclassification,reduc- IoU
+proportionofcorrectlymatchedspansinbothpredictedandground-
+ingrewardsparsityandimprovingtrainingstability.Basedonthis
+truthsets,providingastricterevaluationthanF1 byrequiring
+trainingstrategy,weobtaintwohallucinationdiagnosismodels: M
+sufficienttokenoverlapratherthanpartialinclusion.
+HalluScope-4BandHalluScope-8B.
+ClassificationMetricsF1 andF1 .Thesemetricsevalu-
+Macro Micro
+5 EXPERIMENTS
+atehallucinationclassificationacrossthe𝐶predefinedhallucination
+types.Foreachtype𝑘,wecountthenumberoftruepositives(𝑇𝑃 𝑘),
+5.1 ExperimentalSetup falsepositives(𝐹𝑃 𝑘),andfalsenegatives(𝐹𝑁 𝑘)basedonwhetherthe
+5.1.1 EvaluationMetrics. Weusefourmetricstoevaluatehallu- predictedtypematchestheground-truthtype.F1 computes
+Macro
+cinationdiagnosis.Forfine-grainedhallucinationdetection,we F1foreachhallucinationtypeindependentlyandaveragesoverall
+adoptandrefineF1 andF1 fromMHALO[4]byintroducing 𝐶classes,treatingeachtypeequallyregardlessoffrequency,thus
+M IoU
+positionalconsistencyconstraints.Forhallucinationclassification, betterreflectingbalancedperformanceacrossrareandcommon
+weuseF1 andF1 scores. types.F1 computesF1fromgloballyaggregatedTP,FP,and
+Macro Micro Micro
+PartialMatchMetricF1 .Tomeasurethematchingqualitybe- FNcounts,andismoreinfluencedbyfrequentclasses,reflecting
+M
+tweenpredictedandground-truthspans,weadopttherecall-based overallclassificationaccuracy.Formaldefinitionsareprovidedin
+partialmatchscore(PM𝑅)proposedbyJafarietal.[20].However, Appendix.
+
+[[page:6]]
+Conference’17,July2017,Washington,DC,USA WeilinJin,MingyuWang,WenboLi,HaoyangHuang,YifanWu,YingLi,GangHuang,andZhonghaiWu
+Table1:ResultsontheMHALObenchmark.F1 andF1 measurethequalityofspan-levelhallucinationdetection,whileIF
+M IoU
+denotestheformatvalidityrate.Thebestresultsarehighlightedinbold,andthesecond-bestresultsareunderlined.
+RLHF-V(500) M-HalDetect(500) Geo170K(500) MathV360K(500) Average
+Model F1M F1IoU IF F1M F1IoU IF F1M F1IoU IF F1M F1IoU IF F1M F1IoU IF
+Baselines
+Qwen3-VL-4B-Instruct 33.81 27.36 99.6 16.33 13.06 95.2 40.74 26.05 94.8 41.69 39.46 87.6 33.14 26.48 94.3
+Qwen3-VL-8B-Instruct 40.30 34.62 99.6 18.61 13.69 99.0 37.40 24.46 86.8 51.12 48.93 89.0 36.86 30.43 93.6
+Gemini-3-Flash 53.20 43.26 100.0 45.25 36.45 100.0 63.95 48.55 100.0 74.87 66.06 100.0 59.32 48.58 100.0
+Gemini-3-Pro 50.71 40.68 100.0 48.37 41.61 100.0 63.14 46.96 100.0 72.20 62.13 100.0 58.61 47.84 100.0
+GPT-4o 45.83 34.23 100.0 36.11 32.28 100.0 57.38 42.58 99.6 69.49 59.53 99.8 52.20 42.16 99.8
+GPT-5 51.26 41.32 100.0 40.31 31.80 100.0 53.19 38.08 100.0 63.53 49.52 100.0 52.07 40.18 100.0
+HALODET-4B† 35.43 28.66 100.0 27.41 24.66 99.4 44.34 34.58 80.2 73.82 68.82 97.6 45.25 39.18 94.3
+HALODET-8B† 37.94 30.52 99.8 20.34 18.92 100.0 35.13 26.43 83.4 66.61 61.36 98.2 40.00 34.31 95.3
+OurModels
+HalluScope-4B 54.63 43.66 100.0 44.36 39.36 100.0 68.37 64.14 99.0 77.77 73.11 99.4 61.28 55.07 99.6
+HalluScope-8B 55.17 43.66 100.0 47.24 45.31 99.8 74.65 67.05 99.4 79.06 74.26 99.0 64.03 57.57 99.6
+†Sincethemodelweightsarenotpubliclyavailable,weretrainHALODETfollowingtheoriginalpaper’smethodanddata,usingthesamebasemodelsasourapproach.
+Table 2: Main results on our hallucination classification ThisbenchmarkisbuiltfromdatasetsincludingMMBench[28],
+benchmark. F1 M and F1 IoU evaluate span-level detection, MMStar [5], OCRBench [29], RealWorldQA [45], Geo170K [13],
+whileF1 Macro andF1 Micro evaluatetypeclassification.Thebest MathV360K[36],M-HalDetect[16],andRLHF-V[49],andisde-
+resultsarehighlightedinbold,andthesecond-bestresults signedtoevaluatemodelperformanceacrossmultipletaskcate-
+areunderlined. gories,includinggeneralperception,mathematicalreasoning,OCR,
+spatialreasoning,andhallucinationdetection.Thedetailedcompo-
+Model F1M F1IoU F1Macro F1Micro sitionofthisbenchmarkisprovidedinAppendix.
+Qwen3-VL-4B-Instruct 44.03 36.91 27.55 35.27 5.1.3 Baselines. Wecompareourmodelswithseveralstrongbase-
+Qwen3-VL-8B-Instruct 56.47 49.27 33.73 40.28 lines.SinceHalluScope-4BandHalluScope-8Bareobtainedbypost-
+Gemini-3-Flash 67.33 60.45 44.44 47.87 trainingQwen3-VL-4B-InstructandQwen3-VL-8B-Instruct[2],re-
+Gemini-3-Pro 67.55 61.17 49.14 53.14 spectively,weincludethesetwobasemodelsasfundamentalbase-
+GPT-4o 61.67 55.30 40.10 48.12 lines.WefurthercompareourmodelsagainstrepresentativeMLLMs,
+GPT-5 62.70 55.21 43.93 43.54 including Gemini-3-Flash, Gemini-3-Pro [39], GPT-4o [19], and
+GPT-5[37].WealsoincludeHALODET-4BandHALODET-8B[4]
+HalluScope-4B 69.76 64.77 48.46 55.79
+asspecializedbaselinesforfine-grainedhallucinationdetection.
+HalluScope-8B 72.20 67.69 51.66 59.60
+Sincetheirmodelweightsarenotpubliclyavailable,weretrain
+both models following the original method and data, using the
+samebasemodelsasourapproach.SinceHALODETisdesigned
+5.1.2 Benchmark. We evaluate our models on the fine-grained
+solelyforhallucinationdetectionwithouttypeclassification,itis
+hallucinationdiagnosistask.Asthistaskinvolvesmultiplestages,
+notincludedintheclassificationbenchmarkevaluation.
+weassessmodelperformanceseparatelyatdifferentstages.
+For the hallucination detection stage, we adopt the MHALO
+5.1.4 ImplementationDetails. WeuseQwen3-VL-4B-Instructand
+benchmark[4]forevaluation.MHALOisabenchmarkdesigned
+Qwen3-VL-8B-Instructasbasemodels.TheSFTstagetrainsfor
+forfine-grainedhallucinationdetectionandcontains2,000samples 1epoch,andtheRLstagetrainsfor250stepswith𝜆 = 0.3.Full
+drawnfromfourpublicsubsets:RLHF-V[49],M-HalDetect[16], hyperparameters,hardwareconfiguration,andablationon𝜆are
+Geo170K[13],andMathV360K[36].Weevaluatethefine-grained
+providedinAppendix.
+hallucinationdetectioncapabilityofeachmodeloneverysubset
+andcomparetheresultswithaseriesofrepresentativeMLLMsas
+5.2 MainResults
+wellasthespecializedHALODETbaselines.Despitesharingsource
+datasets,weensurenosampleoverlapbetweenourtrainingdata ThissectionpresentstheevaluationresultsofHalluScope-4Band
+andtheMHALOtestset. HalluScope-8B.Table1andTable2reporttheperformanceofthe
+Forthehallucinationclassificationstage,sincethereiscurrently modelsontheMHALObenchmarkandourhallucinationclassifi-
+nopublicbenchmarkdedicatedtofine-grainedhallucinationclassi- cationbenchmark,respectively.Fromtheseresults,wehighlight
+fication,wefurtherconstructabenchmarkcontaining733samples. thefollowingfindings:
+
+[[page:7]]
+HalluScope:Fine-grainedHallucinationDiagnosisforMultimodalLargeLanguageModels Conference’17,July2017,Washington,DC,USA
+85
+80
+75
+70
++Self-Refine +CRITIC-Det +CRITIC-Cls +HalluScope
+)%(
+ycaruccA
+Qwen3-VL-8B-Instruct (733 samples)
+55
+Baseline
+Round 1
+Round 2 50
+Round 3
+Round 4
+45
+40
+35
+68.8%
++Self-Refine +CRITIC-Det +CRITIC-Cls +HalluScope
+)%(
+ycaruccA
+LLaVA-1.5-7B (733 samples)
+Baseline
+Round 1
+Round 2
+Round 3
+Round 4
+33.0%
+Figure3:Accuracy(%)overfourfeedbackroundswithdifferentdiagnosticgranularitiesontwotargetmodels.
+HalluScope-4BandHalluScope-8Bachievestate-of-the-art Table3:Out-of-distributionclassificationresultsontheHal-
+performanceontheMHALObenchmark.AsshowninTable1, LocCaptionbenchmark(%).DetdenotesDetectionCoverage
+both HalluScope models achieve state-of-the-art results on the andE2Edenotesend-to-endaccuracy(jointlydetectedand
+MHALObenchmark.HalluScope-8Bobtainsthehighestaverage correctlyclassified).Thebestresultsarehighlightedinbold.
+F1 of64.03andF1 of57.57,outperformingthestrongestbase-
+M IoU
+lineGemini-3-Flashby4.71and8.99points,respectively.HalluScope- Object Attribute Relationship Overall
+4BalsosurpassesallbaselineswithanaverageF1 of61.28and
+M Model Det E2E Det E2E Det E2E Det E2E
+F1 of55.07.ComparedwiththespecializedbaselinesHALODET-
+IoU
+4BandHALODET-8B,ourmodelsshowsubstantialimprovements, Qwen3-VL-8B-Instruct 65.1 64.6 42.1 24.3 14.6 5.4 44.2 35.2
+GPT-5.5 85.4 84.4 73.2 56.0 64.2 31.5 75.7 60.9
+indicatingthatourdatagenerationpipelineandmulti-granular
+Gemini-3-Pro 81.5 81.1 68.4 50.3 51.9 46.5 69.4 61.3
+rewardfunctionaremoreeffectivethantheoriginalHALODET
+HalluScope-8B 92.1 90.7 86.8 57.8 87.7 59.8 89.1 71.0
+trainingstrategy.Furthermore,bothmodelsoutperformtheirre-
+spectivebasemodels(Qwen3-VL-4B/8B-Instruct)byapproximately
+27 points on average, confirming the effectiveness of our post-
+trainingapproach.Notably,sinceourtrainingdataisannotated Table4:AblationonMHALOBenchmark(HalluScope-8B):
+byGemini-3-Pro,onemayworrythatthemodelssimplyreplicate Oursvs.Oursw/ocls.
+Gemini’sannotationpatterns.However,thefactthatourmodels
+consistentlyoutperformGemini-3-ProontheMHALObenchmark,
+Ours Oursw/ocls
+whichisanexternalbenchmarknotconstructedbyourpipeline, Subset
+suggeststhatourmodelsacquiregenuinediagnosticcapabilities F1 M F1 IoU F1 M F1 IoU
+beyondtheannotationsource. RLHF-V 55.17 43.66 53.34 44.25
+Ourmodelsachievestate-of-the-artperformanceonthehal- M-HalDetect 47.24 45.31 48.50 45.03
+lucinationclassificationbenchmark.BothHalluScope-4Band Geo170K 74.65 67.05 65.22 58.10
+HalluScope-8Boutperformallbaselinemodelsacrossallfourevalu- MathV360K 79.06 74.26 78.07 73.82
+ationmetrics.HalluScope-8BachievesthebestresultswithF1
+Macro
+Average 64.03 57.57 61.28 55.30
+of51.66andF1 of59.60,whileHalluScope-4Balsosurpassesthe
+Micro
+strongestbaselineGemini-3-ProinF1 ,F1 ,andF1 .These
+M IoU Micro
+resultsdemonstratethatourapproacheffectivelyimprovesboth
+hallucinationdetectionandtypeclassificationthroughthecombi-
+nationoffine-graineddiagnosticdataandmulti-granularreward
+andrelationship)andevaluateontheHalLocCaptionbenchmark
+optimization.
+(3,079samples)usingtwospan-levelmetrics:DetectionCoverage
+(Det)andend-to-endaccuracy(E2E),whereE2Erequiresaspan
+5.3 Out-of-DistributionGeneralization
+tobebothcorrectlydetectedandcorrectlyclassified.Usingidenti-
+Sinceourclassificationbenchmarkisproducedbythesamedata calpromptsacrossallmodels,Table3showsthatHalluScope-8B
+generationpipelineasthetrainingset,onemayquestionwhether achievesthebestE2Eaccuracyacrossallthreecategories,reach-
+theclassificationimprovementsgeneralizebeyondthisdistribution. inganoverallE2Eof 71.0andoutperformingbothGPT-5.5(60.9)
+Toaddressthisconcern,wefurtherevaluateonHalLoc[32],an andGemini-3-Pro(61.3).Thisconfirmsthatourmodelacquires
+independentfine-grainedhallucinationclassificationbenchmark genuinefine-grainedclassificationabilitythatgeneralizestoout-of-
+thatHalluScopehasneverseenduringtraining.Wemapour12 distributiondata,ratherthanmerelyfittingtheannotationpatterns
+hallucinationtypestoHalLoc’sthreecategories(object,attribute, ofourpipeline.
+
+[[page:8]]
+Conference’17,July2017,Washington,DC,USA WeilinJin,MingyuWang,WenboLi,HaoyangHuang,YifanWu,YingLi,GangHuang,andZhonghaiWu
+Table5:AblationonOurBenchmark(HalluScope-8B):Ours Table6:Diagnosis-drivenfeedbackresultsontheAMBER
+vs.Oursw/odet. benchmark after four rounds. The best results are high-
+lightedinbold.
+Ours Oursw/odet
+Subset
+Qwen3-VL-8B-Instruct LLaVA-1.5-7B
+F1 F1 F1 F1
+Macro Micro Macro Micro
+Method CHAIR↓ Cover↑ Hal↓ Cog↓ CHAIR↓ Cover↑ Hal↓ Cog↓
+MMBench 59.16 68.97 48.14 52.22
+MMStar 58.26 62.15 46.81 46.05 Baseline 7.5 73.7 54.2 2.7 7.5 50.7 33.3 3.9
+OCRBench 81.60 81.02 45.68 56.18 Self-Refine 8.8 75.0 64.4 4.0 7.5 50.7 33.3 3.9
+RealWorldQA 54.82 69.21 45.31 47.23 CRITIC-Det 7.6 72.8 53.1 2.9 6.6 50.2 30.4 3.3
+Geo170K 28.53 41.59 17.20 23.80 CRITIC-Cls 7.6 72.9 54.2 3.0 6.2 50.0 28.3 3.1
+HalluScope 7.4 73.4 52.9 2.7 4.2 50.8 20.5 2.0
+MathV360K 50.00 59.11 38.75 43.90
+M-HalDetect 39.05 63.69 21.46 37.18
+RLHF-V 51.89 61.46 39.02 33.45
+Average 51.66 59.60 38.17 40.54
+detection-levelfeedbackbymarkinghallucinatedspansandgener-
+atingstructuredcorrectioninstructionswithouttypeclassification;
+5.4 AblationStudy
+CRITIC-Clsfurtherincorporatestypeannotations(e.g.,Object,
+Tovalidatetheeffectivenessofourmulti-granularjointreward Calculation_Error)intoboththespanmarkingandcorrection
+function,weconductablationexperimentsbytrainingtwovari- instructions,informingthetargetmodelnotonlywhatiswrongbut
+antmodels:oneusingonlythedetectionreward𝑟
+det
+(𝑦 𝑘)andthe
+alsowhattypeoferroritis.Finally,HalluScopeusesHalluScope-
+otherusingonlytheclassificationreward𝑟
+cls
+(𝑦 𝑘).Asshownin
+8Btodirectlydetecthallucinatedspans,classifytheirtypes,and
+Table4,removingtheclassificationrewardleadstoadeclinein generateinterpretableexplanations,informingthetargetmodel
+detectionperformanceontheMHALObenchmark,withaverage whatiswrong,whyitiswrong,andhowitmaybecorrected.
+F1 M droppingfrom64.03to61.28andF1 IoU from57.57to55.30.This As shown in Figure 3, increasing diagnostic granularity con-
+suggeststhattheclassificationobjectiveprovidescomplementary sistently leads to larger accuracy gains across feedback rounds.
+supervisionthatalsobenefitsspan-leveldetection.Asshownin OnQwen3-VL-8B-Instructwithaninitialaccuracyof68.76%,Hal-
+Table5,removingthedetectionrewardcausesamoresubstantial luScope raises the accuracy to 81.17% after 4 rounds, substan-
+degradationinclassificationperformanceonourbenchmark,with tiallyoutperformingCRITIC-Clsat79.40%,CRITIC-Detat77.63%,
+averageF1 Macro droppingfrom51.66to38.17andF1 Micro from59.60 andSelf-Refineat76.81%.ThesametrendholdsonLLaVA-1.5-7B,
+to40.54.Thisindicatesthataccuratespandetectionisaprerequisite where HalluScope achieves 50.34% from an initial 33.02%. Note
+foreffectivetypeclassification.Theseresultsconfirmthatjointly thatHalluScope-8BsharesthesamebasemodelasQwen3-VL-8B-
+optimizingdetectionandclassificationthroughthemulti-granular Instruct,whichmayintroduceanadvantageindiagnosis.Tocon-
+rewardfunctionyieldsbetterperformancethanoptimizingeither trolforthisconfound,weadditionallyevaluateonLLaVA-1.5-7B,
+objectivealone. whichusesadifferentarchitectureandbasemodel.Theconsistent
+performanceorderingacrossbothmodelsconfirmsthatexternal
+5.5 Diagnosis-drivenFeedbackExperiments
+diagnosticfeedbackisessentialforreliableself-correction,andthat
+Afterevaluatingtheperformanceofourmodels,anaturalquestion increasingdiagnosticgranularityprogressivelyenhanceshalluci-
+arises:whatpracticalvaluedoesitprovide?Themostdirectanswer nationmitigationregardlessofthetargetmodel’sarchitecture.
+isthatitcanofferdiagnosticexplanationsforincorrectanswers, Tofurtherverifythatdiagnosis-drivenfeedbackgeneralizesbe-
+enablingself-improvementofthetargetmodel.Tothisend,we yondourownbenchmark,weadditionallyevaluateonAMBER[40],
+exploreadiagnosis-drivenmulti-roundfeedbackexperimenton anindependentLLM-freehallucinationbenchmarkcontaining1,004
+twomodels:Qwen3-VL-8B-InstructandLLaVA-1.5-7B.Weevaluate images.Weadoptitsrule-basedmetrics:CHAIR(objecthallucina-
+onthe733samplesfromourclassificationbenchmark,whereeach tionrate),Cover(objectcoverage),Hal(sentence-levelhallucination
+target model first generates an initial response; HalluScope-8B rate),andCog(cognition-levelhallucinationrate),andapplyfour
+thenanalyzesthisresponse,identifieshallucinatedspansalong roundsofiterativefeedbacktothesametwotargetmodels.As
+withtheirtypes,andprovidesexplanationsforthetargetmodel showninTable6,HalluScopefeedbackconsistentlyreduceshallu-
+toregenerateitsanswer.Thisprocesscanbeiteratedformultiple cinationonbothmodels,mostnotablyloweringCHAIRfrom7.5to
+rounds.DetailedexperimentalsetupisprovidedinAppendix. 4.2andHalfrom33.3to20.5onLLaVA-1.5-7B,whilemaintaining
+Tostudyhowdiagnosticgranularityaffectsmitigationeffective- orimprovingobjectcoverage.Incontrast,Self-Refinemayeven
+ness,wecomparefourfeedbackmodes.Self-Refine[30]servesas increasehallucination(Halrisingfrom54.2to64.4onQwen3-VL-
+abaselineforpureself-correction,wherethetargetmodelissim- 8B-Instruct)duetounguidedregeneration.Theseresultsconfirm
+plyinformedthatitspreviousanswerwasincorrectandprompted thatourfine-graineddiagnosticfeedbackgeneralizestoanexter-
+toretrywithoutanyexternaldiagnosis.Buildingontheverify- nalbenchmarkandreliablyimprovesgenerationquality,whereas
+then-correctparadigmof CRITIC[15],wedesigntwodiagnosis- coarserordiagnosis-freebaselinesprovidelimitedorevennegative
+drivenbaselineswithincreasinggranularity:CRITIC-Detprovides effects.
+
+[[page:9]]
+HalluScope:Fine-grainedHallucinationDiagnosisforMultimodalLargeLanguageModels Conference’17,July2017,Washington,DC,USA
+Classification： Object Knowledge_Error Color_Attribute Spatial_Relation Logical_Error Number_Attribute Shape_Attribute Calculation_Error
+Q：How many chef’s hats are there ? Q：What are the key elements in this picture?
+Ground Truth HalluScope 8B Gemini-3-pro
+Ground Truth HalluScope8B Gemini-3-pro
+The image features a man The image features a man wearing The image features a man
+wearing a blue shirt standing a blue shirt standing under a large wearing a blue shirt standing
+There are six There are six There are six u h n o d ld e i r n g a t la h r e g u e m u b m r b e r ll e a l l i a n . h H i e s r is ig ht u u m m b b r r e e l l l l a a . i H n e h i i s s r h i o g l h d t i n h g a n th d e a nd u h n o d ld e i r n g a t la h r e g u e m u b m r b e r ll e a l l i a n . h H i e s r is ig ht
+chef hats in chef hats in chef hats in hand and looking up towards the looking uptowards the sky. There hand and looking up towards the
+the picture. the picture. the picture. sky. There are several smaller are several smaller umbrellas sky. There are several smaller
+umbrellas scattered around the scattered around the scene… umbrellasscattered around the
+F1!: 1.0 F1!: 0.0 M-HalDetect scene… F1!: 0.75 scene … F1!: 0.47
+RLHF-V
+Q：What is this photo about ? Q：If angle A plus angle C equals 110 degrees, what is the measure of angle B?
+Ground Truth HalluScope 8B Gemini-3-pro
+Ground Truth HalluScope 8B Gemini-3-pro
+Green. The two Green. The two Green. The two Because quadrilateral ABCD is a Because quadrilateral ABCD isa Because quadrilateral ABCD is a
+traffic lights visible traffic lights visible traffic lights visible trapezoid, angle A + angle C = trapezoid, angle A + angle C = 110°, trapezoid, angle A + angle C =
+on the sidewalkare on the sidewalk are on the sidewalk are 110°, therefore angle A = angle therefore angle A = angle C = 65°. 110°, therefore angle A = angle C
+illuminated in green, illuminated in green, illuminated in green, C = 65°. AD is not parallelto BC, AD is not parallel to BC, therefore = 65°. AD is not parallel to BC,
+indicating the blue indicating the blue indicating the blue therefore angle A + angle B angle A + angle B does not equal therefore angle A + angle B does
+busshould turn left. busshould turn left. busshould turn left. Geo170K d 17 o 0 es °. n T o h t e e r q e u f a o l r 1 e 8 , 0 an °, g b le u t B i = n s 1 t 7 e 0 a ° d 1 a 8 ng 0 l ° e , b B u = t 1 in 7 s 0 t ° e - ad 6 5 17 ° 0 = ° 1 . 0 T 5 h ° e . refore, n T o h t e r e e q f u o a r l e 1 , 8 a 0 n ° g , l b e u B t i = n s 1 t 7 e 0 a ° d - 1 6 7 5 0 ° °. =
+RealWorldQA F1!: 0.97 F1!: 0.62 -65°= 105°. F1!: 0.81 105°. F1!: 0.57
+Figure4:QualitativecomparisonbetweenHalluScope-8BandGemini-3-Proonfourrepresentativesamples.Coloredspans
+indicatedetectedhallucinationswithtype-specificannotations.F1 scoresareshownforeachprediction.
+M
+5.6 CaseStudy ourclassificationbenchmark.Beyonddetectionaccuracy,wefind
+Figure4presentsfourrepresentativeexamplescomparingHalluScope- thatdetectionandclassificationaremutuallybeneficialunderjoint
+8BwithGemini-3-Proacrossdifferentdatasetsandhallucination optimization,andthatincreasingdiagnosticgranularityprogres-
+types.IntheRLHF-Vexample,HalluScope-8Bpreciselyidentifies sivelyimproveshallucinationmitigation,validatingthepractical
+thenumericalhallucination“six”andachievesaperfectF1 of1.0, valueoffine-graineddiagnosis.
+M
+whileGemini-3-Profailstodetectanyhallucination(F1 :0.0).For
+M
+theM-HalDetectsamplecontainingmultiplehallucinationtypes
+(Object,Spatial_Relation),HalluScope-8Blocatesmosthallucinated
+spanswithF1 of0.75,whereasGemini-3-Proonlyachieves0.47
+M
+withlesspreciseboundaries.TheRealWorldQAcasedemonstrates
+thatHalluScope-8Bcanaccuratelydetectsubtleperceptualerrors
+inreal-worldscenes(F1 :0.97vs.0.62).TheGeo170Kexamplein-
+M
+volvesreasoninghallucinations(Logical_Error,Calculation_Error,
+Knowledge_Error)inageometryproblem,whereHalluScope-8B
+achievesF1 of0.81versus0.57forGemini-3-Pro,demonstrating
+M
+strongercapabilityinidentifyinglogicalandcomputationalerrors.
+ThesecasesillustratethatHalluScope-8Bconsistentlyproduces
+moreaccuratespan-leveldetectionandmoreprecisetypeclassifi-
+cationacrossbothperceptualandreasoninghallucinations.
+6 CONCLUSION
+Inthispaper,weintroducefine-grainedhallucinationdiagnosis,a
+unifiedtaskthatencompasseshallucinationdetection,classification,
+andinterpretableexplanationgenerationforMLLMs.Wedevelopan
+automateddatagenerationpipelinetoconstructHalluScope-30K,a
+large-scaledatasetwithnearly30,000diagnosticannotationsacross
+eightdatasetsandfivetaskcategories,anddesignamulti-granular
+jointrewardfunctiontotraintwodiagnosismodels,HalluScope-
+4BandHalluScope-8B.Althoughthecurrentpipelinereliesona
+closed-sourcemodelforhallucinationinjectionandannotation,
+whichweplantoaddresswithopen-sourcealternativesinfuture
+work,experimentsdemonstratethatourmodelsachievestate-of-
+the-artperformanceonboththeMHALOdetectionbenchmarkand
+
+[[page:10]]
+Conference’17,July2017,Washington,DC,USA WeilinJin,MingyuWang,WenboLi,HaoyangHuang,YifanWu,YingLi,GangHuang,andZhonghaiWu
+References
+modelsthroughvisualcontrastivedecoding.InProceedingsoftheIEEE/CVF
+[1] StanislawAntol,AishwaryaAgrawal,JiasenLu,MargaretMitchell,DhruvBatra, ConferenceonComputerVisionandPatternRecognition.13872–13882.
+CLawrenceZitnick,andDeviParikh.2015.Vqa:Visualquestionanswering.In [24] ChunyuanLi,CliffWong,ShengZhang,NaotoUsuyama,HaotianLiu,Jianwei
+ProceedingsoftheIEEEinternationalconferenceoncomputervision.2425–2433. Yang,TristanNaumann,HoifungPoon,andJianfengGao.2023.Llava-med:Train-
+[2] ShuaiBai,YuxuanCai,RuizheChen,KeqinChen,XionghuiChen,ZesenCheng, ingalargelanguage-and-visionassistantforbiomedicineinoneday.Advances
+LianghaoDeng,WeiDing,ChangGao,ChunjiangGe,etal.2025. Qwen3-vl inNeuralInformationProcessingSystems36(2023),28541–28564.
+technicalreport.arXivpreprintarXiv:2511.21631(2025). [25] JunnanLi,DongxuLi,SilvioSavarese,andStevenHoi.2023.Blip-2:Bootstrapping
+[3] ZechenBai,PichaoWang,TianjunXiao,TongHe,ZongboHan,ZhengZhang, language-imagepre-trainingwithfrozenimageencodersandlargelanguage
+andMikeZhengShou.2024.Hallucinationofmultimodallargelanguagemodels: models.InInternationalconferenceonmachinelearning.PMLR,19730–19742.
+Asurvey.arXivpreprintarXiv:2404.18930(2024). [26] HanchaoLiu,WenyuanXue,YifeiChen,DapengChen,XiutianZhao,KeWang,
+[4] YishuoCai,RenjieGu,JiaxuLi,XuanchengHuang,JunzheChen,XiaotaoGu,and LipingHou,RongjunLi,andWeiPeng.2024.Asurveyonhallucinationinlarge
+MinlieHuang.2025.MHALO:EvaluatingMLLMsasFine-grainedHallucination vision-languagemodels.arXivpreprintarXiv:2402.00253(2024).
+Detectors.InFindingsoftheAssociationforComputationalLinguistics:ACL2025. [27] ShengLiu,HaotianYe,andJamesZou.2025.Reducinghallucinationsinlarge
+9197–9222. vision-languagemodelsvialatentspacesteering.InTheThirteenthInternational
+[5] LinChen,JinsongLi,XiaoyiDong,PanZhang,YuhangZang,ZehuiChen, ConferenceonLearningRepresentations.
+HaodongDuan,JiaqiWang,YuQiao,DahuaLin,etal.2024. Areweonthe [28] YuanLiu,HaodongDuan,YuanhanZhang,BoLi,SongyangZhang,Wangbo
+rightwayforevaluatinglargevision-languagemodels? AdvancesinNeural Zhao,YikeYuan,JiaqiWang,ConghuiHe,ZiweiLiu,etal.2024. Mmbench:
+InformationProcessingSystems37(2024),27056–27087. Isyourmulti-modalmodelanall-aroundplayer?.InEuropeanconferenceon
+[6] XinleiChen,HaoFang,Tsung-YiLin,RamakrishnaVedantam,SaurabhGupta,Pi- computervision.Springer,216–233.
+otrDollár,andCLawrenceZitnick.2015.Microsoftcococaptions:Datacollection [29] YuliangLiu,ZhangLi,MingxinHuang,BiaoYang,WenwenYu,ChunyuanLi,
+andevaluationserver.arXivpreprintarXiv:1504.00325(2015). Xu-ChengYin,Cheng-LinLiu,LianwenJin,andXiangBai.2024.Ocrbench:on
+[7] XiangChen,ChenxiWang,YidaXue,NingyuZhang,XiaoyanYang,QiangLi, thehiddenmysteryofocrinlargemultimodalmodels.ScienceChinaInformation
+YueShen,LeiLiang,JinjieGu,andHuajunChen.2024. Unifiedhallucination Sciences67,12(2024),220102.
+detectionformultimodallargelanguagemodels.InProceedingsofthe62ndAnnual [30] AmanMadaan,NiketTandon,PrakharGupta,SkylerHallinan,LuyuGao,Sarah
+MeetingoftheAssociationforComputationalLinguistics(Volume1:LongPapers). Wiegreffe,UriAlon,NouhaDziri,ShrimaiPrabhumoye,YimingYang,etal.
+3235–3252. 2023. Self-refine:Iterativerefinementwithself-feedback. Advancesinneural
+[8] ZhiyuanChen,YuecongMin,JieZhang,BeiYan,JiahaoWang,XiaozhenWang, informationprocessingsystems36(2023),46534–46594.
+andShiguangShan.2026.Asurveyofmultimodalhallucinationevaluationand [31] AbhikaMishra,AkariAsai,VidhishaBalachandran,YizhongWang,Graham
+detection.InternationalJournalofComputerVision134,3(2026),131. Neubig,YuliaTsvetkov,andHannanehHajishirzi.2024.Fine-grainedhallucina-
+[9] Yun-WeiChu,KaiZhang,ChristopherMalon,andMartinRenqiangMin.2025. tiondetectionandeditingforlanguagemodels.arXivpreprintarXiv:2401.06855
+Reducinghallucinationsofmedicalmultimodallargelanguagemodelswithvisual (2024).
+retrieval-augmentedgeneration.arXivpreprintarXiv:2502.15040(2025). [32] EunkyuPark,MinyeongKim,andGunheeKim.2025. Halloc:Token-levello-
+[10] LauraFieback,NishilkumarBalar,JakobSpiegelberg,andHannoGottschalk. calizationofhallucinationsforvisionlanguagemodels.InProceedingsofthe
+2025.EfficientContrastiveDecodingwithProbabilisticHallucinationDetection- IEEE/CVFConferenceonComputerVisionandPatternRecognition.29893–29903.
+MitigatingHallucinationsinLargeVisionLanguageModels. arXivpreprint [33] ZhiliangPeng,WenhuiWang,LiDong,YaruHao,ShaohanHuang,ShumingMa,
+arXiv:2504.12137(2025). andFuruWei.2023.Kosmos-2:Groundingmultimodallargelanguagemodelsto
+[11] LauraFieback,JakobSpiegelberg,andHannoGottschalk.2024. Metatoken: theworld.arXivpreprintarXiv:2306.14824(2023).
+Detectinghallucinationinimagedescriptionsbymetaclassification. arXiv [34] PranabSahoo,PrabhashMeharia,AkashGhosh,SriparnaSaha,VinijaJain,and
+preprintarXiv:2405.19186(2024). AmanChadha.2024. Acomprehensivesurveyofhallucinationinlargelan-
+[12] DeqingFu,TongXiao,RuiWang,WangZhu,PengchuanZhang,GuanPang, guage,image,videoandaudiofoundationmodels.FindingsoftheAssociationfor
+RobinJia,andLawrenceChen.2024.Tldr:Token-leveldetectiverewardmodel ComputationalLinguistics:EMNLP2024(2024),11709–11724.
+forlargevisionlanguagemodels.arXivpreprintarXiv:2410.04734(2024). [35] PritishSahu,KaranSikka,andAjayDivakaran.2024.Pelican:Correctinghal-
+[13] JiahuiGao,RenjiePi,JipengZhang,JiachengYe,WanjunZhong,YufeiWang, lucinationinvision-llmsviaclaimdecompositionandprogramofthoughtveri-
+LanqingHong,JianhuaHan,HangXu,ZhenguoLi,etal.2023.G-llava:Solving fication.InProceedingsofthe2024ConferenceonEmpiricalMethodsinNatural
+geometricproblemwithmulti-modallargelanguagemodel. arXivpreprint LanguageProcessing.8228–8248.
+arXiv:2312.11370(2023). [36] WenhaoShi,ZhiqiangHu,YiBin,JunhuaLiu,YangYang,SeeKiongNg,Lidong
+[14] TeamGlm,AohanZeng,BinXu,BowenWang,ChenhuiZhang,DaYin,Dan Bing,andRoyKa-WeiLee.2024.Math-llava:Bootstrappingmathematicalrea-
+Zhang,DiegoRojas,GuanyuFeng,HanlinZhao,etal.2024. Chatglm:Afam- soningformultimodallargelanguagemodels.InFindingsoftheAssociationfor
+ilyoflargelanguagemodelsfromglm-130btoglm-4alltools. arXivpreprint ComputationalLinguistics:EMNLP2024.4663–4680.
+arXiv:2406.12793(2024). [37] AadityaSingh,AdamFry,AdamPerelman,AdamTart,AdiGanesh,Ahmed
+[15] ZhibinGou,ZhihongShao,YeyunGong,YelongShen,YujiuYang,NanDuan, El-Kishky,AidanMcLaughlin,AidenLow,AJOstrow,AkhilaAnanthram,etal.
+andWeizhuChen.2023. Critic:Largelanguagemodelscanself-correctwith 2025.Openaigpt-5systemcard.arXivpreprintarXiv:2601.03267(2025).
+tool-interactivecritiquing.arXivpreprintarXiv:2305.11738(2023). [38] ZhiqingSun,ShengShen,ShengcaoCao,HaotianLiu,ChunyuanLi,Yikang
+[16] AnishaGunjal,JihanYin,andErhanBas.2024.Detectingandpreventinghalluci- Shen,ChuangGan,LiangyanGui,Yu-XiongWang,YimingYang,etal.2024.
+nationsinlargevisionlanguagemodels.InProceedingsoftheAAAIConference Aligninglargemultimodalmodelswithfactuallyaugmentedrlhf.InFindingsof
+onArtificialIntelligence,Vol.38.18135–18143. theAssociationforComputationalLinguistics:ACL2024.13088–13110.
+[17] DayaGuo,DejianYang,HaoweiZhang,JunxiaoSong,PeiyiWang,QihaoZhu, [39] GeminiTeam,RohanAnil,SebastianBorgeaud,Jean-BaptisteAlayrac,Jiahui
+RunxinXu,RuoyuZhang,ShirongMa,XiaoBi,etal.2025. DeepSeek-R1in- Yu,RaduSoricut,JohanSchalkwyk,AndrewMDai,AnjaHauth,KatieMillican,
+centivizesreasoninginLLMsthroughreinforcementlearning.Nature645,8081 etal.2023.Gemini:afamilyofhighlycapablemultimodalmodels.arXivpreprint
+(2025),633–638. arXiv:2312.11805(2023).
+[18] EdwardJHu,YelongShen,PhillipWallis,ZeyuanAllen-Zhu,YuanzhiLi,Shean [40] JunyangWang,YuhangWang,GuohaiXu,JingZhang,YukaiGu,HaitaoJia,
+Wang,LiangWang,WeizhuChen,etal.2022.Lora:Low-rankadaptationoflarge JiaqiWang,HaiyangXu,MingYan,JiZhang,etal.2023. Amber:Anllm-free
+languagemodels.Iclr1,2(2022),3. multi-dimensionalbenchmarkformllmshallucinationevaluation.arXivpreprint
+[19] AaronHurst,AdamLerer,AdamPGoucher,AdamPerelman,AdityaRamesh, arXiv:2311.07397(2023).
+AidanClark,AJOstrow,AkilaWelihinda,AlanHayes,AlecRadford,etal.2024. [41] JunyangWang,YiyangZhou,GuohaiXu,PengchengShi,ChenlinZhao,Haiyang
+Gpt-4osystemcard.arXivpreprintarXiv:2410.21276(2024). Xu,QinghaoYe,MingYan,JiZhang,JihuaZhu,etal.2023.Evaluationandanalysis
+[20] NazaninJafari,JamesAllan,andSheikhMuhammadSarwar.2024.Targetspan ofhallucinationinlargevision-languagemodels.arXivpreprintarXiv:2308.15126
+detectionforimplicitharmfulcontent.InProceedingsofthe2024ACMSIGIR (2023).
+InternationalConferenceonTheoryofInformationRetrieval.117–122. [42] XintongWang,JinghengPan,LiangDing,andChrisBiemann.2024. Mitigat-
+[21] JiayiKuang,YingShen,JingyouXie,HaohaoLuo,ZheXu,RonghaoLi,Yinghui inghallucinationsinlargevision-languagemodelswithinstructioncontrastive
+Li,XianfengCheng,XikaLin,andYuHan.2025.Naturallanguageunderstanding decoding.InFindingsoftheAssociationforComputationalLinguistics:ACL2024.
+andinferencewithmllminvisualquestionanswering:Asurvey.Comput.Surveys 15840–15853.
+57,8(2025),1–36. [43] YiqiWang,WentaoChen,XiaotianHan,XudongLin,HaitengZhao,YongfeiLiu,
+[22] HaroldWKuhn.1955.TheHungarianmethodfortheassignmentproblem.Naval BohanZhai,JianboYuan,QuanzengYou,andHongxiaYang.2024.Exploring
+researchlogisticsquarterly2,1-2(1955),83–97. thereasoningabilitiesofmultimodallargelanguagemodels(mllms):Acom-
+[23] SicongLeng,HangZhang,GuanzhengChen,XinLi,ShijianLu,ChunyanMiao, prehensivesurveyonemergingtrendsinmultimodalreasoning.arXivpreprint
+andLidongBing.2024.Mitigatingobjecthallucinationsinlargevision-language arXiv:2401.06805(2024).
+
+[[page:11]]
+HalluScope:Fine-grainedHallucinationDiagnosisforMultimodalLargeLanguageModels Conference’17,July2017,Washington,DC,USA
+[44] SpencerWhitehead,JacobPhillips,andSeanHendryx.2024.Pre-TrainingMulti-
+modalHallucinationDetectorswithCorruptedGroundingData.arXivpreprint
+arXiv:2409.00238(2024).
+[45] xAI.2024.Grok-1.5V:MultimodalUnderstandingwithGrok. https://x.ai/blog/
+grok-1.5v
+[46] WenyiXiao,ZiweiHuang,LeileiGan,WangguiHe,HaoyuanLi,ZhelunYu,
+FangxunShu,HaoJiang,andLinchaoZhu.2025. Detectingandmitigating
+hallucinationinlargevisionlanguagemodelsviafine-grainedaifeedback.In
+ProceedingsoftheAAAIConferenceonArtificialIntelligence,Vol.39.25543–25551.
+[47] LeYang,ZiweiZheng,BoxuChen,ZhengyuZhao,ChenhaoLin,andChaoShen.
+2025.Nullu:Mitigatingobjecthallucinationsinlargevision-languagemodels
+viahalluspaceprojection.InProceedingsoftheComputerVisionandPattern
+RecognitionConference.14635–14645.
+[48] ShukangYin,ChaoyouFu,SiruiZhao,TongXu,HaoWang,DianboSui,Yunhang
+Shen,KeLi,XingSun,andEnhongChen.2024. Woodpecker:Hallucination
+correctionformultimodallargelanguagemodels. ScienceChinaInformation
+Sciences67,12(2024),220105.
+[49] TianyuYu,YuanYao,HaoyeZhang,TaiwenHe,YifengHan,GanquCui,Jinyi
+Hu,ZhiyuanLiu,Hai-TaoZheng,MaosongSun,etal.2024. Rlhf-v:Towards
+trustworthymllmsviabehavioralignmentfromfine-grainedcorrectionalhuman
+feedback.InProceedingsoftheIEEE/CVFConferenceonComputerVisionand
+PatternRecognition.13807–13816.
+[50] BohanZhai,ShijiaYang,ChenfengXu,ShengShen,KurtKeutzer,ChunyuanLi,
+andManlingLi.2023.HallE-Control:controllingobjecthallucinationinlarge
+multimodalmodels.arXivpreprintarXiv:2310.01779(2023).
+[51] KaichenZhang,KemingWu,ZuhaoYang,BoLi,KairuiHu,BinWang,Zi-
+weiLiu,XingxuanLi,andLidongBing.2025. OpenMMReasoner:Pushing
+theFrontiersforMultimodalReasoningwithanOpenandGeneralRecipe.
+arXiv:2511.16334[cs.AI] https://arxiv.org/abs/2511.16334
+[52] RuiyangZhang,HuZhang,andZhedongZheng.2024.Vl-uncertainty:Detecting
+hallucinationinlargevision-languagemodelviauncertaintyestimation.arXiv
+preprintarXiv:2411.11919(2024).
+[53] YudongZhang,RuobingXie,XingwuSun,YiqingHuang,JianshengChen,Zhan-
+huiKang,DiWang,andYuWang.2025. Dhcp:Detectinghallucinationsby
+cross-modalattentionpatterninlargevision-languagemodels.InProceedingsof
+the33rdACMInternationalConferenceonMultimedia.3555–3564.
+[54] ZhiyuanZhao,BinWang,LinkeOuyang,XiaoyiDong,JiaqiWang,andConghui
+He.2023.Beyondhallucinations:Enhancinglvlmsthroughhallucination-aware
+directpreferenceoptimization.arXivpreprintarXiv:2311.16839(2023).
+[55] DeyaoZhu,JunChen,XiaoqianShen,XiangLi,andMohamedElhoseiny.2023.
+Minigpt-4:Enhancingvision-languageunderstandingwithadvancedlargelan-
+guagemodels.arXivpreprintarXiv:2304.10592(2023).
+[56] LanyunZhu,DeyiJi,TianrunChen,PengXu,JiepingYe,andJunLiu.2025.
+Ibd:Alleviatinghallucinationsinlargevision-languagemodelsviaimage-biased
+decoding.InProceedingsoftheComputerVisionandPatternRecognitionConference.
+1624–1633.
+[57] GeighZollicoffer,MinhVu,andManishBhattarai.2025. MTRE:Multi-Token
+ReliabilityEstimationforHallucinationDetectioninVLMs. arXivpreprint
+arXiv:2505.11741(2025).
+
+[[page:12]]
+Conference’17,July2017,Washington,DC,USA WeilinJin,MingyuWang,WenboLi,HaoyangHuang,YifanWu,YingLi,GangHuang,andZhonghaiWu
+A DatasetDetails (2) Subsetsampling.Forlarge-scaledatasets(MathV360Kand
+Geo170K),weuserandomlysampledsubsetstomaintaina
+A.1 DatasetComposition
+balancedcompositionacrosstaskcategories.
+Table7summarizesthecompositionofHalluScope-30K.Thedataset
+(3) Deduplication.Weconstructadeduplicationkeyfromthe
+issplitintoatrainingsetof29,747samplesandatestsetof733
+concatenationofquestion,choices,andanswer,andremove
+samples.Bothsetscoveralleightsourcedatasetsacrossfivetask
+duplicateentrieskeepingthefirstoccurrence.
+categories,ensuringthatthetestsetevaluatesthefullspectrumof
+Afterpreprocessing,allsamplesenterthehallucinationlabel
+hallucinationtypes.Theeightsourcedatasetsare:
+generation pipeline. The final HalluScope-30K is obtained after
+• MMBench[28]:Amulti-disciplinevisualunderstandingbench-
+multi-stagequalitycontrol(AppendixC).
+markcoveringperception,reasoning,andknowledgeacrossmul-
+tiplelanguages.
+A.3 Injectionvs.AnnotationRatio
+• MMStar [5]: A curated multimodal benchmark emphasizing
+vision-criticalquestionsthatresisttext-onlyshortcuts. Asdescribedinthemaintext,HalluScopeemploystwocomple-
+• MathV360K[36]:Alarge-scalemathematicalvisualQAcollec- mentarylabelgenerationstrategiesbasedonmodelresponsecor-
+tionspanning24sub-domainsincludinggeometry,algebra,and rectness:hallucinationinjectionforcorrectlyansweredsamplesand
+statistics. hallucination annotation for incorrectly answered ones. Table 8
+• Geo170K[13]:Ageometry-focuseddatasetwithdiagram-based reportstheratioofsamplesprocessedthrougheachpathway.
+reasoningquestionsfromGeo3KandGeoQA+.
+• OCRBench[29]:AnOCRevaluationbenchmarkcoveringtext Table8:Ratioofhallucinationinjection(correctanswers)vs.
+recognition,scenetextunderstanding,anddocumentanalysis. annotation(incorrectanswers)bytaskcategory.
+• RealWorldQA[45]:Real-worldspatialunderstandingquestions
+requiring reasoning about object positions, orientations, and
+TaskCategory Injection Annotation Inject.%
+environments.
+• M-HalDetect[16]:AnimagecaptioningandVQAdatasetwith GeneralPerception 6,806 1,640 80.6%
+COCOimages,originallydesignedformultimodalhallucination Math.Reasoning 10,072 5,156 66.1%
+detection. OCR 848 134 86.4%
+• RLHF-V[49]:AvisualQAdatasetwithhumanpreferenceanno- SpatialReasoning 494 236 67.7%
+tations;weusethechosenanswerasgroundtruth. Halluc.Detection 0 12,118 0.0%
+Total 18,220 19,284 48.6%
+Table7:CompositionofHalluScope-30Kbysourcedataset
+andtaskcategory.
+Theratiovariessubstantiallyacrosstaskcategories.OCRand
+generalperceptiondatasetsexhibithighinjectionratesof86.4%and
+TaskCategory SourceDataset Train Test Total 80.6%,respectively,becausethebasemodelQwen3-VL-8B-Instruct
+answersmostofthesequestionscorrectly.Mathematicalreasoning
+MMBench 5,372 113 5,485
+GeneralPerception hasamoderateinjectionrateof66.1%duetothemodel’slower
+MMStar 726 58 784
+accuracyongeometryandmathproblems.Hallucinationdetection
+Mathematical MathV360K 6,371 123 6,494 datasets,namelyM-HalDetectandRLHF-V,areentirelyprocessed
+Reasoning Geo170K 3,899 123 4,022 through the annotation pathway, as these datasets provide pre-
+existingmodelresponsesthatalreadycontainhallucinations.
+OCR OCRBench 735 44 779
+SpatialReasoning RealWorldQA 526 42 568 A.4 HallucinationTypeDistribution
+Hallucination M-HalDetect 7,385 114 7,499 Figure5illustratesthedistributionofhallucinationtypesinthe
+Detection RLHF-V 4,733 116 4,849 trainingandtestsets.Eachsamplemaycontainmultiplehallucina-
+tionspansofdifferenttypes,sothespancountsexceedthetotal
+Total 29,747 733 30,480
+numberofsamples.
+Thedistributionexhibitsnotableclassimbalance.Objectisthe
+mostfrequenttype,accountingfor26.2%ofalltrainingspans,while
+Query_Misunderstandingisextremelyunderrepresentedwithonly
+A.2 DataPreprocessing
+373trainingspans(0.27%)and7testspans.Thisimbalancedirectly
+EachofthesourcedatasetslistedinTable7undergoesastandard- explainsthemodel’slowperformanceontheseraretypes(e.g.,
+izedpreprocessingpipelinebeforeenteringthehallucinationlabel Query_Misunderstanding).Onaverage,eachsamplecontains4.6
+generationstage.Thepreprocessingconsistsofthefollowingsteps: hallucinationspansinboththetrainingandtestsets.
+(1) Format unification. Raw datasets differ in schema and
+A.5 BenchmarkConstruction
+annotationstyle.Weconvertallsamplesintoaunifiedformat
+withfields:image,question,answer,questiontype(MCQor Thehallucinationclassificationbenchmarkconsistsof733samples
+open-ended),andsourcemetadata. drawnfromthesamedatagenerationpipelineasthetrainingsplit,
+
+[[page:13]]
+HalluScope:Fine-grainedHallucinationDiagnosisforMultimodalLargeLanguageModels Conference’17,July2017,Washington,DC,USA
+30
+25
+20
+15
+10
+5
+0
+Object OCR Num. Color Shape Spatial Num. Spatial Logical Calc. Know. Query
+Attr. Attr. Attr. Attr. Rel. Rel. Err. Err. Err. Mis.
+)%(
+noitroporP
+Train
+26.2 Test
+23.8
+18.7
+13.2
+10.0 10.2 10.8 9.8 9.4 9.4 9.0
+7.6
+6.5 6.0
+3.9 3.0 5.3 3.4 5.1 4.6
+2.0 1.7
+Figure5:Proportionofeachhallucinationtypeinthetrainingset(29,747samples,137,283spans)andthetestset(733samples,
+3,375spans).
+Annotator A Annotator B Annotator C
+100
+Annotator A 100% 76% 74%
+90
+Annotator B 76% 100% 66% 80
+70
+Annotator C 74% 66% 100%
+60
+)%(
+etaR
+tnemeergA
+B HallucinationTaxonomy
+WeadoptthehallucinationtaxonomyproposedbyMHALO[4],
+whichorganizes12fine-grainedhallucinationtypesintotwohigh-
+levelcategories:perception-levelandreasoning-level.Table9sum-
+marizesalltypeswiththeirdefinitions.
+Perception-levelhallucinationsarisefromerrorsinvisualun-
+derstandingorinformationextraction,andcanbedirectlyverified
+byexaminingtheimage.Theyareorganizedintotwosub-groups:
+• Contenterrors:Object,whichreferstomisidentifyinganob-
+ject’spresence,absence,orcategory,andOCR,whichrefersto
+misreadingvisibletext,numbers,orsymbols.
+Figure6:Pairwiseagreementratesamongthreeannotators
+• Attributeerrors:Numerical_Attributeforwrongabsolutecount
+on100randomlysampledtestsamples.
+ormeasurementofasingleentity,Color_Attribute forwrong
+colorofacorrectlyidentifiedobject,Shape_Attributeforwrong
+geometricorstructuralform,andSpatial_Attributeforwrong
+position,orientation,ordistanceofasingleobject.
+withstrictdeduplicationtoensurenooverlapbetweenthetwo
+Reasoning-levelhallucinationsoriginatefromincorrectinfer-
+splits.Theper-subsetcompositionisshowninTable7,coveringall
+ence,computation,orknowledgeapplication,requiringcognitive
+taskcategories.Eachtestsampleundergoesthesamequalitycontrol
+processingbeyonddirectvisualobservation.Theyareorganized
+processasthetrainingdata,includingtextqualityassessmentand
+intotwosub-groups:
+hallucinationconsistencyverification.
+• Relation errors: Numerical_Relation for wrong quantitative
+To assess the annotation quality of the benchmark, three in-
+comparisonbetweenmultipleentities,andSpatial_Relationfor
+dependentannotatorseachevaluated100randomlysampledtest
+wrongspatialarrangementbetweenmultipleobjects.Although
+instancesandjudgedwhetherthehallucinationlabels(spanbound-
+relationerrorsmayinvolvevisualcontent,theyrequirecom-
+ariesandtypeassignments)werecorrect.Notethatthisannotation
+parative reasoning across multiple objects rather than direct
+task requires jointly verifying both the span boundary and the
+perceptionofasingleelement.
+hallucinationtypefromafine-grainedtaxonomyof12categories,
+• Reasoningerrors:Logical_Errorforflawedreasoningchainsor
+whichissubstantiallymoredemandingthanbinaryhallucination
+invalidinferences,Calculation_Errorformistakesinarithmetic
+detection.AnnotatorsAandBeachreportedanaccuracyof80.0%,
+or mathematical computation, Knowledge_Error for incorrect
+whileAnnotatorCreported76.0%.Thepairwiseagreementrates
+applicationofexternalknowledgeordomain-specificfacts,and
+are76.0%(A–B),74.0%(A–C),and66.0%(B–C),asshowninFigure6.
+Query_Misunderstandingforrespondingtoadifferentquestion
+Thelowerpairwiseratesprimarilyreflecttheinherentsubjectivity
+thanwhatwasasked.
+infine-grainedtypeassignmentratherthanspandetectionerrors:
+annotatorstypicallyagreedonwhetheraspanishallucinatedbutoc-
+casionallydivergedontheassignedtype(e.g.,Numerical_Attribute
+vs.Calculation_Error).Undermajorityvoting(atleasttwoannota-
+torsagree),theaccuracyreaches86.0%,confirmingthehighquality
+ofthebenchmarkannotations.
+
+[[page:14]]
+Conference’17,July2017,Washington,DC,USA WeilinJin,MingyuWang,WenboLi,HaoyangHuang,YifanWu,YingLi,GangHuang,andZhonghaiWu
+Table9:Hallucinationtypesanddefinitionsusedforhallucinationdiagnosis,adoptedfromthetaxonomyofMHALO[4].Types
+abovethemid-ruleareperception-level;typesbelowarereasoning-level.
+Type Definition
+Object Errorsinrecognizinganobject’spresence,absence,orcategory.
+OCR Failuretocorrectlyreadvisibletext,numbers,orsymbols.
+NumericalAttribute Errorsinidentifyingtheabsolutevalueofasingleobjectorelement.
+ColorAttribute Misperceptionofthecolorofacorrectlyidentifiedobjectorregion.
+ShapeAttribute Errorsindescribinganobject’sgeometricorstructuralshape.
+SpatialAttribute Errorsinidentifyingasingleobject’sposition,orientation,ordistance.
+NumericalRelation Errorsinreasoningaboutquantitativerelationsamongobjectsorvalues.
+SpatialRelation Errorsinreasoningaboutspatialrelationsamongmultipleobjects.
+LogicalError Wrongconclusionscausedbyflawedlogicalinference.
+CalculationError Mistakesinarithmeticormathematicalcomputation.
+KnowledgeError Incorrectuseofexternalknowledge,commonsense,ordomainrules.
+QueryMisunderstanding Responsescausedbymisunderstandingthequeryintentorconstraints.
+C QualityControlDetails aspects:(1)whethereachtaggedhallucinationissemanticallyplau-
+sibleasarealisticMLLMerror,and(2)whetherthesurrounding
+C.1 LabelNormalization
+text remains coherent after hallucination injection. In addition,
+Thelabelnormalizationstagemapsnon-standardhallucinationtype
+rule-basedchecksareappliedtoensureformatcorrectness(proper
+labelsproducedbytheLLMannotatortothestandardizedsetof12
+XMLtagclosure,nonesting)andtypevalidity(eachtypeattribute
+types.Thepipelineappliesover80rule-basedmappings,including
+belongstothepredefined12-typeset).Samplesthatfailanyofthese
+casenormalization(e.g.,“object”→“Object”),plural-to-singular
+checksareremovedfromthefinaldataset.
+conversion(e.g.,“Calculation_Errors”→“Calculation_Error”),for-
+matunificationforspace-separatedandCamelCasevariants,andse-
+D ImplementationDetails
+manticsynonymmapping(e.g.,“Entity”→“Object”,“Factual_Error”
+→“Knowledge_Error”).Ifnorulematches,fuzzymatchingisat- D.1 TrainingHyperparameters
+temptedbycomparinglabelsafterstrippingunderscores,spaces, Allexperimentsareconductedonfourservers,includingtwoservers
+and hyphens. Samples containing unmappable labels (e.g., “Un- equippedwith2NVIDIAH20ZGPUs(144GB)andtwoservers
+known”,“None”)arediscardedentirely. equippedwith2NVIDIAB20ZGPUs(180GB).WeuseQwen3-VL-
+4B-InstructandQwen3-VL-8B-Instructasthebasemodels.
+C.2 TextQualityAssessment SFTstage.WeapplyLoRAfine-tuningwithrank𝑟 =8andalpha
+WeuseLLM-as-Judgetoassessthetextqualityofeachgenerated 𝛼 = 16,targetingalllinearlayerswiththevisiontowerfrozen.
+sample.Thejudgeevaluatesthreedimensionsona1–5scale:
+Trainingrunsfor1epochwithalearningrateof5×10−5,abatch
+• Clarity(1–5):Whethertheresponseiseasytounderstand,with sizeof8,andamaximumsequencelengthof4096.AfterSFT,the
+unambiguouslanguageandclearexpressionofideas. LoRAadaptersaremergedintothebasemodel.
+• Fluency(1–5):Whethertheresponsereadsnaturally,withproper RL stage. We apply GRPO with a group size 𝐾 = 5 and full-
+grammar,wordchoice,andsentenceflow. parametertraining(noLoRA)withthevisiontowerunfrozen.The
+• Coherence(1–5):Whethertheresponsemaintainslogicalcon- learningrateis1×10−6,globalbatchsizeis32,andtrainingruns
+sistencythroughout,withsmoothtransitionsbetweenideasand
+for250steps.TheKLcoefficientis0.01andtherewardweight𝜆
+nocontradictions. issetto0.3.Themaximumpromptlengthis4096andmaximum
+Asamplepassesqualityassessmentonlyifitscores≥4onall responselengthis2048.Duringtrainingrollout,temperatureis1.0
+three dimensions. Samples scoring below the threshold on any
+andtop-𝑝 is1.0;duringvalidation,temperatureis0.6andtop-𝑝
+dimensionareremovedfromthedataset. is0.95.WeuseFSDPwithCPUoffloadingandvLLMforrollout
+generation.TheRLframeworkisbasedonEasyR1(builtonveRL).
+C.3 HallucinationConsistencyVerification
+D.2 MitigationExperimentSetup
+Afterlabelnormalizationandtextqualityassessment,weuseLLM-
+as-Judgetoverifytheconsistencyofthegeneratedhallucination Weprovideadditionaldetailsonthemitigationexperiment.The
+labels.Specifically,foreachsample,thejudgemodelisprovided initialaccuracybeforefeedbackis68.76%(504/733)forQwen3-VL-
+withtheoriginalimage,question,ground-truthanswer,andthe 8B-Instructand33.02%(242/733)forLLaVA-1.5-7B.Allmodelsuse
+hallucination-annotated response, and is asked to evaluate two greedydecoding(temperature=0)withamaximumgeneration
+
+[[page:15]]
+HalluScope:Fine-grainedHallucinationDiagnosisforMultimodalLargeLanguageModels Conference’17,July2017,Washington,DC,USA
+(a) Per-Subset F1Macro (b) Per-Subset F1Micro (c) Per-Type F1
+MMB. MMB. Object
+M Q i u su e n ry d. OCR
+80 80 80
+RLHF-V MMS. RLHF-V MMS.
+60 60 60
+Know. Num.
+Error Attr.
+40 40 40
+20 20 20
+M-Hal. OCR. M-Hal. OCR. E C r a r l o c r . C A o t l t o r. r
+Logical Shape
+Error Attr.
+Math. RWQA Math. RWQA
+Spatial Spatial
+Rel. Attr.
+Geo. Geo. N R u e m l. .
+Qwen3-VL-4B Qwen3-VL-8B GPT-4o GPT-5 Gemini-3-Flash Gemini-3-Pro HalluScope-8B
+Figure7:Per-subsetandper-typeclassificationresultsonourhallucinationclassificationbenchmark.(a)Per-subsetF1 .(b)
+Macro
+Per-subsetF1 .(c)Per-typeF1across12hallucinationtypes.
+Micro
+Table10:Effectof𝜆ondetectionandclassificationperfor- Table11:Multiplicativevs.additivedetectionrewardcompo-
+mance.Bestresultspermetricarebolded. sition.Bestresultspermetricarebolded.
+MHALO Classification MHALO Classification
+𝜆 Composition
+AvgF1M AvgF1IoU F1M F1Macro F1Micro AvgF1M AvgF1IoU F1M F1Macro F1Micro
+0.1 61.97 56.65 72.48 49.74 58.54 Multiplicative 64.03 57.57 72.20 51.66 59.60
+0.3 64.03 57.57 72.20 51.66 59.60 Additive 62.70 57.36 71.13 51.99 59.46
+0.5 62.88 56.98 71.14 52.53 59.55
+0.7 64.92 59.10 70.70 51.87 58.88
+onOCRBench(F1 =81.6vs.57.3forGemini-3-Flash)andM-
+Macro
+lengthof2048tokens.Forfree-formquestions,correctnessisde- HalDetect(F1 Micro =63.7vs.46.5forGemini-3-Pro),indicatingthat
+terminedbyGemini-3-Projudgethroughsemanticequivalence; ourmodelparticularlyexcelsatOCR-relatedandopen-endedhal-
+for MCQs, the option letter is extracted and compared directly. lucinationclassification.Geo170Kremainsthemostchallenging
+FeedbackprompttemplatesforallfourmodesareprovidedinAp- subset for all models (F1 Micro < 42), reflecting the difficulty of
+pendixH.3. fine-grainedtypeclassificationongeometryproblems.
+Per-typeanalysis.HalluScope-8BachievesthebestF1on7of12
+E EvaluationMetrics hallucinationtypes.Thelargestgainsappearonreasoning-level
+types:Numerical_Relation(56.1vs.38.0forGemini-3-Pro),Logi-
+F1 :
+Macro F1 = 1 ∑︁ 𝐶 2𝑇𝑃 𝑘 . (10) c ta a b l_ le E w rr e o a r k ( n 5 e 9 s .5 si v s s C .4 a 1 lc .6 u ) l , a a ti n o d n_ S E p r a ro ti r a ( l_ F1 R = el 1 a 5 t . i 8 o ) n ,w (5 h 6 e . r 5 e v G s. P 5 T 1 -5 .6 r ). ea A ch n e o s -
+Macro 𝐶
+𝑘=1
+2𝑇𝑃
+𝑘
++𝐹𝑃
+𝑘
++𝐹𝑁
+𝑘 63.7,suggestingthatnumericalcomputationverificationbenefits
+Thismetricisinsensitivetoclassfrequencyandbetterreflects more from the stronger reasoning capabilities of larger models.
+balancedperformanceacrosshallucinationtypes. Query_MisunderstandingyieldsF1=0.0forbothHalluScope-8Band
+F1 : Gemini-3-Pro,consistentwithitsextremescarcityinthedataset
+Micro
+F1 =
+2(cid:205)𝐶
+𝑘=1
+𝑇𝑃
+𝑘 . (11)
+(only7testspans,seeAppendixA.4).
+Micro 2(cid:205)𝐶
+𝑘=1
+𝑇𝑃
+𝑘
++(cid:205)𝐶
+𝑘=1
+𝐹𝑃
+𝑘
++(cid:205)𝐶
+𝑘=1
+𝐹𝑁
+𝑘 F.1 ExplanationQualityEvaluation
+F1 Micro iscomputedfromgloballyaggregatedstatisticsandis Beyonddetectionandclassification,HalluScopealsogeneratesnat-
+moreinfluencedbyfrequentclasses. urallanguageexplanationsthatdescribewhyahallucinationoccurs
+andhowitmaybecorrected.Todirectlyassessthequalityofthese
+F AdditionalExperimentalResults
+explanations,werandomlysample50diagnosedcasesfromour
+Figure7presentstheper-subsetandper-typeclassificationresults classificationbenchmarkandinvitethreeindependentannotators
+onourhallucinationclassificationbenchmark. torateeachexplanationona1–5scalealongthreedimensions:
+Per-subsetanalysis.HalluScope-8BachievesthehighestF1 CausalAccuracy(CA),whethertheexplanationcorrectlyidenti-
+Micro
+on all eight subsets. The most pronounced advantage appears fiesthecauseofthehallucination;CorrectionUsefulness(CU),
+
+[[page:16]]
+Conference’17,July2017,Washington,DC,USA WeilinJin,MingyuWang,WenboLi,HaoyangHuang,YifanWu,YingLi,GangHuang,andZhonghaiWu
+whetheritprovidesactionablecorrectionguidance;andVisual Themultiplicativeformoutperformstheadditivevariantonmost
+Grounding(VG),whetherthereasoningisgroundedinimage metrics,withanotableadvantageonMHALOdetectionwhereF1
+M
+evidence. reaches64.03vs.62.70fortheadditiveform.Thisisexpectedbe-
+AsshowninTable12,theexplanationsreceiveanaveragescore causethemultiplicativecompositionrequiresbothcontentmatch-
+of3.89,withparticularlyhighVisualGrounding(4.61),indicating ing and count accuracy to be high simultaneously, providing a
+thatthediagnosticreasoningiswellgroundedinthevisualinput. strongertrainingsignalthatdiscouragespartialmatches.
+Theinter-annotatoragreement(pairwiseagreementwithinone
+point)reaches70.7%forCA,82.0%forCU,and86.0%forVG,indi-
+catinggoodconsistencyacrossallthreedimensions.Theseresults
+directlyvalidatethequalityofHalluScope’sdiagnosticexplana-
+tions.
+Table12:Humanevaluationofexplanationqualityon50
+randomlysampleddiagnosedcases.CA:CausalAccuracy;
+CU:CorrectionUsefulness;VG:VisualGrounding.
+Annotator CA↑ CU↑ VG↑ Avg↑
+Annotator#1 3.90 3.62 4.42 3.98
+Annotator#2 3.40 3.28 4.46 3.71
+Annotator#3 3.72 3.24 4.96 3.97
+Average 3.67 3.38 4.61 3.89
+G AdditionalAblationStudies
+G.1 RewardWeightSensitivity(𝜆)
+As described in the main text, the RL stage optimizes a multi-
+granularjointrewardthatcombinesaspan-leveldetectionreward
+H PromptTemplates
+𝑟
+det
+(𝑦 𝑘)withatype-levelclassificationreward𝑟
+cls
+(𝑦 𝑘).Thehyper-
+parameter𝜆controlstherelativeimportanceofthesetwoobjectives. H.1 DataGenerationPrompts
+Ahigher𝜆allocatesmoretrainingsignaltowardcorrecttypeclas-
+Ourdatagenerationpipelineusesfourprompt-drivenstages:Stage1
+sification,whilealower𝜆prioritizesaccuratespandetection.The
+generatesmodelanswersandjudgescorrectness,Stage2applieshal-
+multi-granularjointrewardisformulatedas: lucinationlabelgenerationthroughinjectionorannotation,Stage3
+𝑅(𝑦 𝑘)=I
+format
+((1−𝜆)𝑟
+det
+(𝑦 𝑘)+𝜆𝑟
+cls
+(𝑦 𝑘)) (12) assesseslinguisticquality,andStage4verifieshallucinationconsis-
+tency.Thefullpromptsarelistedbelow.
+Wetrainmodelswith𝜆 ∈ {0.1,0.3,0.5,0.7}andreportresultson
+boththeMHALObenchmarkandourhallucinationclassification Stage1a:ModelAnswerGeneration
+benchmarkinTable10.
+Youareanexpertvisualquestionansweringassistant.
+Increasing𝜆allocatesmoretrainingsignaltowardtypeclassifi- Question:{question}
+cation.AsshowninTable10,𝜆=0.7achievesthehighestMHALO Instructions:Analyzetheimagecarefullyandthinkstepbystep.
+1.Generateastep-by-stepreasoningprocessthatnaturallyleadstothecorrectanswer
+detectionscoreswithAvgF1 =64.92andAvgF1 =59.10,likely 2.Showyourcompletethoughtprocessandanalysis
+becausetheclassificationrew M ard𝑟 cls alsoimplic I i o t U lyencourages 4 3 . . F M in a a k l e ly s , u c r o e n y c o lu u d r e re w a i s t o h n t i h n e g p is ro lo v g id ic e a d l, c c o o r h re e c r t en an t, s a w n e d r educational
+accuratespandetectionthroughtype-matchedIoU.However,itde- Important:
+–Bethoroughinyourreasoningandanalysis
+gradesperformanceonourhallucinationclassificationbenchmark –Considerallrelevantinformationfromthequestion
+toF1 =70.70.Conversely,𝜆=0.1maximizesF1 at72.48butyields –Yourreasoningshouldnaturallyleadtotheanswer
+M M –Makethereasoningprocessnaturalandinstructive
+theweakestMHALOdetectionat61.97andthelowestF1 of Pleaseprovideyourreasoningandanswer.
+Macro
+49.74.Weselect𝜆=0.3asthedefaultbecauseitachievescompeti-
+tiveMHALOdetectionat64.03whilemaintainingstrongclassifica- Stage1b:AnswerCorrectnessJudge
+tionperformanceacrossallthreemetrics:F1 M =72.20,F1 Macro =51.66, Determineifthemodel’sanswerissemanticallycorrectcomparedtothegroundtruth.
+–Fornumericalanswers:exactmatchrequired
+andF1 =59.60,providingthebestoverallbalance.
+Micro –Fordescriptiveanswers:semanticequivalenceissufficient
+Question:{question}
+G.2 DetectionRewardComposition: GroundTruth:{ground_truth}
+ModelAnswer:{model_answer}
+Multiplicativevs.Additive Instructions:DetermineiftheModelAnswerisconsistentwiththeGroundTruthAnswer.
+Consider:
+Wecomparetwocompositionmodesforthedetectionreward:the 1.Thecoremeaning/resultshouldbethesame
+2.Numericalanswersshouldmatchexactly
+multiplicative form𝑟 det = 𝑟 content ×𝑟 count and an additive form 3.Formultiplechoice,theselectedoptionshouldmatch
+𝑟 =0.5·𝑟 +0.5·𝑟 .Table11summarizestheresults. RespondwithONLYoneofthefollowing:“CORRECT”or“INCORRECT”
+det content count
+
+[[page:17]]
+HalluScope:Fine-grainedHallucinationDiagnosisforMultimodalLargeLanguageModels Conference’17,July2017,Washington,DC,USA
+Stage2a:HallucinationInjection(forcorrectsamples) Stage3:QualityAssessment
+Youareanexpertatinjectinghallucinationsintovisualquestionansweringdata. Youareanexpertlinguisticqualityevaluator.Yourtaskistoevaluatethequalityofagenerated
+Task:Inject3–5differenttypesofhallucinationsintothegivencorrectmodelanswertocreate answerforaVisualQuestionAnswering(VQA)task.
+aplausiblebutincorrectresponse.Eachhallucinationtagshouldcoveranaturalsemanticunit— Important: The answer contains hallucination tags in the format <hallucination
+useshortphrases(1–3words)whenpossible,butlongerspansareacceptablewhentheerroris type="TYPE">content</hallucination>.Whenevaluatingquality,youshouldIGNOREthe
+acoherentphrase. actualcontentinsidethehallucinationtags(asitrepresentsintentionallyinjectederrors).
+HallucinationTypes:[12typeswithdefinitionsandboundaryrules] Focusonlyonevaluatingtheoveralltextstructure,fluency,andcoherence.
+DatasetCategory:{dataset_category} Evaluateonthreedimensions:
+PriorityTypes(use2–3):{primary_types} 1.Clarity(1–5):Istheanswereasytounderstand?Arethesentenceswell-structured?
+SecondaryTypes(use1–2):{secondary_types} 2.Fluency(1–5):Isthelanguagenaturalandgrammaticallycorrect?Doesthetextflowsmoothly?
+InjectionStrategies:Applyoneormoreofthefollowingstrategiestoinjecthallucinations 3.Coherence(1–5):Doestheanswerstructuremakesense?Isthetextinternallyconsistentin
+naturally: termsofformattingandflow?
+(1)EntityReplacement:Replacecorrectentitieswithsimilarbutincorrectones. Input:
+(2)ObjectAttributeModification:Changeattributeswhilekeepingtheobject. –Question:{question}
+(3)ObjectRelationshipModification:Changerelationshipsbetweenmultipleobjects. –Answer:{answer}
+(4)NumericalPerturbation:Modifynumericalvalues. Instructions:
+(5)Precision-to-VaguenessConversion:Replacepreciseinfowithmisleadingvagueexpres- 1.Analyzetheanswerbasedonthethreedimensionsabove.
+sions. 2.Ignorethefactualcorrectnessofcontentinsidehallucinationtags—thoseareintentionally
+(6)KnowledgeSubstitution:Replacecorrectdomainknowledgewithplausiblebutincorrect wrong.
+info. 3.Evaluatethelinguisticquality,structure,andreadabilityoftheoveralltext.
+(7)ReasoningChainDisruption:Modifyorbreakthelogicalflowofreasoning. 4.Assignascorefrom1to5foreachdimension.
+(8)OCR-SpecificErrors:Introducetext/numberrecognitionerrors. 5.Provideabriefexplanationforyourscores.
+(9)SpatialPositionPerturbation:Modifyspatialdescriptions. 6.DetermineifthesampleisPASSorFAIL.PASScriteria:allscores≥4.
+(10)QueryIntentRedirection:Answeradifferentbutrelatedquestion. Output:<analysis>...</analysis>,<scores>Clarity/Fluency/Coherence:[1–5]</scores>,
+(11)ComparativeRelationInversion:Reversecomparisonrelationships. <decision>PASSorFAILwithreason</decision>.
+(12)Multi-StepCalculationError:Introduceerrorsatspecificstepsinmulti-stepcalculations.
+(13)ContextualMisattribution:Assignattributesoractionstowrongentitiesinmulti-object
+scenes. Stage4:ConsistencyVerification
+Input:
+–Question:{question} YouareanexpertdataqualityauditorforaHallucinationDataset.Yourtaskistoverifythe
+–GroundTruthAnswer:{ground_truth} accuracyandcorrectnessofhallucinationtagsinjectedintoananswer.
+–ModelAnswer(Correct):{model_answer} The answer contains tags in the format: <hallucination
+Requirements:
+type="TYPE">content</hallucination>.
+1.Inject3–5differenthallucinationtypes.Totaltagscanbemorethan5. AllowedHallucinationTypes:
+2.Useformat:<hallucinationtype="TYPE">hallucinatedcontent</hallucination>. Perception-based:Object,OCR,Numerical_Attribute,Color_Attribute,Shape_Attribute,Spa-
+3.Tagsmustnotbenestedoroverlapping.AdjacenttagswiththeSAMEtypeMUSTbemerged. tial_Attribute.
+AdjacenttagswithDIFFERENTtypesareallowed. Reasoning-based:Logical_Error,Calculation_Error,Knowledge_Error,Query_Misunderstanding,
+4.Makehallucinationsplausibleandnatural. Numerical_Relation,Spatial_Relation.
+5.Eachtagshouldcoveranaturalsemanticunit—singleword,shortphrase(2–3words),or Verifyfouraspects:
+mediumphrase(4–5words). 1.Syntax:Arethetagsproperlyformatted?(Openingandclosingtagsmatch,typeattribute
+6.Maintaintextconsistencyaftertaginsertion. exists.)
+7.Diversifyhallucinationtypes;donotuseasingletypethroughout. 2.TypeCorrectness:Isthetypeattributeoneofthe12allowedtypeslistedabove?
+8.Varytaglengths;mixsingle-wordandshort-phrasetags. 3.ContentLogic:Doesthecontentinsidethetagactuallyrepresentahallucination(error)
+9.Onlymergeadjacenthallucinatedwordswhentheybelongtothesametype. comparedtotheOriginalAnswerasgroundtruth?
+Output:Thecompletemodifiedanswerwithallhallucinationtags. 4.Context:Doesthesurroundingtextflownaturally?
+Input:
+–Question:{question}
+Stage2b:HallucinationAnnotation(forincorrectsamples) –OriginalAnswer(GroundTruth):{original_answer}
+–HallucinatedAnswer(Target):{hallucinated_answer}
+Youareanexpertatidentifyingandannotatinghallucinationsinvisualquestionanswering Instructions:
+responses. 1.ComparetheHallucinatedAnsweragainsttheOriginalAnswer.
+Task:ThemodelgaveanINCORRECTanswer.Identifyandannotatethehallucinatedparts. 2.Checkeveryhallucinationtaginthetargetanswer.
+HallucinationTypes:[Same12typesasStage2a] 3.Verifyifthetaggedcontentcontradictstheoriginalanswerorintroducesanerrorconsistent
+DatasetCategory:{dataset_category} withitstype.
+Focusonthesetypes:{primary_types} 4.Verifyifthenon-taggedpartsareconsistentwiththeoriginalanswer(unlesstheywere
+Input: modifiedtosupportthehallucination).
+–Question:{question} OutputFormat:
+–GroundTruthAnswer:{ground_truth} <analysis>Analysisofthetagsandtheirlogicalcorrectnesscomparedtotheoriginalanswer.
+–ModelAnswer(Incorrect):{model_answer} </analysis>
+Requirements: <validation> Syntax_Valid: [Yes/No], Types_Valid: [Yes/No], Logic_Valid: [Yes/No]
+1.Identifypartsthatdifferfromthegroundtruth. </validation>
+2.Useformat:<hallucinationtype="TYPE">hallucinatedcontent</hallucination>. <decision>Result:[PASS/FAIL].Reason:[Briefreason.IfFAIL,specifywhichtagorissue
+3.Tagsmustnotbenestedoroverlapping.AdjacenttagswiththeSAMEtypeMUSTbemerged. causedit.]</decision>
+AdjacenttagswithDIFFERENTtypesareallowed.
+4.Eachtagshouldcoveranaturalsemanticunit—singleword,shortphrase(2–3words),or
+mediumphrase(4–5words).Donotover-split.
+5.Maintaintextconsistencyaftertaginsertion.
+6.Diversifyhallucinationtypes;donotuseasingletypethroughout.
+7.Varytaglengths;mixsingle-wordandshort-phrasetags.
+8.Onlymergeadjacenthallucinatedwordswhentheybelongtothesametype.
+Output:Themodelanswerwithhallucinationannotations.
+H.2 EvaluationPrompt
+HalluScope-4B/8Busethefollowingthree-partpromptforhalluci-
+nationdiagnosisatinferencetime.Thesystempromptdefinesthe
+12hallucinationtypeswiththeirdescriptionsandspecifiesastrict
+outputformatrequiringtaggedtextwrappedin<Tagged_Text>de-
+limiters.Theuserpromptsuppliestheimage,question,andmodel
+responsetobeanalyzed.
+
+[[page:18]]
+Conference’17,July2017,Washington,DC,USA WeilinJin,MingyuWang,WenboLi,HaoyangHuang,YifanWu,YingLi,GangHuang,andZhonghaiWu
+SystemPrompt type classification; CRITIC-Cls further incorporates type anno-
+Youareaprecisehallucinationdetectorandclassifierformultimodallargelanguagemodels. tationsintobothspanmarkingandcorrectioninstructions;and
+Yourtaskistoanalyzeimagesandmodelresponsestoidentifyhallucinations.Youmusttag HalluScopeusesHalluScope-8Btogenerateinterpretableexplana-
+eachhallucinationwithitsspecifictype.
+HallucinationTypes(useexactlythesetypenamesintags): tionsthatinformthetargetmodelwhatiswrong,whyitiswrong,
+Perception-basedHallucinations(canbedirectlyverifiedfromtheimage): andhowtocorrectit.
+–Object:Incorrectidentificationofobjectsinvisualcontent.
+–OCR:Failureintextrecognitionprocesseswithinimages.
+SystemPrompt
+–Numerical_Attribute:Misinterpretationofnumericalvaluesinvisualelements.
+–Color_Attribute:Errorsinidentifyingthecolor.
+Youareacarefulvisualquestionansweringassistant.Youwillbegivenyourpreviousanswer
+–Shape_Attribute:Misrecognitionofobjectshapes.
+withhallucinationannotationsmarked.Pleasere-examinetheimage,considerthemarked
+–Spatial_Attribute:Errorsinrecognizingtheposition,orientation,ordistanceoftheobject.
+hallucinations,andprovideacorrectedanswer.
+Reasoning-basedHallucinations(requireinferencebeyonddirectperception):
+–Logical_Error:Errorsinreasoning,suchasincorrectcausalrelationshipsorconflictsininfer-
+encesteps. Self-Refine
+–Calculation_Error:Errorsinmathematicaloperations(e.g.,addition,subtraction,equation
+solving). User:Yourpreviousanswertothisquestionwasincorrect.Pleasetryagain.
+–Knowledge_Error:Appliesincorrectdomainknowledgeormakesunrealisticinferences(e.g., Please:
+violatingcommonsenseorphysicallaws). 1.Carefullyre-examinetheimage
+–Query_Misunderstanding:Providesincorrectorirrelevantanswersduetomisunderstanding 2.Thinkstepbystepaboutwhatyouactuallysee
+thequery. 3.Provideacorrectedanswer
+–Numerical_Relation:Misinterpretingthenumericalrelationshipbetweenobjects(e.g.,misread- Question:{question}
+ingproportionsorquantities). Nowpleaseprovideyourcorrectedanswerbasedonwhatyouactuallyobserveintheimage.
+–Spatial_Relation:Misunderstandingthespatial,orientation,ordistancerelationshipsbetween
+objects.
+IMPORTANTOUTPUTFORMATREQUIREMENTS: CRITIC-Det
+1.StartwithEXACTLYthisline:“Hereistheresponsewithhallucinatedcontenttagged:”
+2.Thenuse<Tagged_Text>tagstowrapthetaggedresponse User:Yourpreviousanswertothisquestionhadsomeissues.Areviewerhasidentifiedthe
+3.Inside<Tagged_Text>tags: followingproblems:
+–OutputtheoriginalresponsewithONLY<hallucinationtype="TYPE">tagsadded [Generatedbygenerate_structured_summary_from_detection():]
+–DONOTmodifyorchangeanywordsintheoriginalresponse Question:{question}.Pleasere-examinetheimagecarefully,correcttheissueslistedabove,
+–ONLYadd<hallucinationtype="TYPE">tagsaroundhallucinatedcontent andprovideanewanswer.
+–Eachtagmustincludethetypeattributespecifyingthehallucinationcategory
+–Iftherearenohallucinations,outputtheoriginaltextexactlyasis CRITIC-Cls
+4.Endwith</Tagged_Text>
+5.DONOTaddanyothertext,analysis,orexplanation User:Yourpreviousanswertothisquestionhadsomeissues.Areviewerhasidentifiedthe
+6.ANYOTHERFORMATWILLBEREJECTED followingproblems:
+ExampleInput: [Generatedbygenerate_structured_summary():]
+promptgiventothemodel:describetheimage Question:{question}.Pleasere-examinetheimagecarefully,correcttheissueslistedabove,
+model’sresponse:Thebrightredsportscarisparkednearalake. andprovideanewanswer.
+CorrectOutputFormat:
+Hereistheresponsewithhallucinatedcontenttagged:
+<Tagged_Text> HalluScope
+The <hallucination type="Color_Attribute">bright red</hallucination>
+<hallucination type="Object">sports</hallucination> car is <hallucination User:Yourpreviousanswertothisquestionhadsomeissues.Hereisfeedbackfromareviewer:
+type="Spatial_Attribute">parkednearalake</hallucination>. {suggestion}
+</Tagged_Text> [ThesuggestionisgeneratedbyHalluScope-8Busingthe<Suggestion>variantoftheevaluation
+INCORRECTOutputs(DONOTDOTHESE): prompt:1–3sentencesexplainingwhatiswrong,whyitiswrongbasedontheimage,andhowto
+–Anytextbefore“Hereistheresponsewithhallucinatedcontenttagged:” correctit.]
+–Anytextbetweentheheaderand<Tagged_Text> Question:{question}.Pleasere-examinetheimagecarefullybasedonthefeedbackaboveand
+–Anytextafter</Tagged_Text> provideacorrectedanswer.
+–Anyexplanatorytextoranalysis
+–Anymodificationtotheoriginaltext
+–Anyadditionalformattingortagsbesides<hallucinationtype="TYPE">
+Remember:
+–Tageachhallucinationseparatelyandspecificallywithitstype
+–Keepthecontentoftheoriginaltextstrictlyunchanged
+–Useexactlythetypenameslistedabove(withunderscores)
+–Perception-basedtypes(Object,OCR,Numerical_Attribute,Color_Attribute,Shape_Attribute,
+Spatial_Attribute):Usewhentheerrorcanbedirectlyverifiedfromtheimage
+–Reasoning-basedtypes(Numerical_Relation,Spatial_Relation,Logical_Error,Calcula-
+tion_Error,Knowledge_Error,Query_Misunderstanding):Usewhentheerrorinvolvescompari-
+son,reasoning,orinferencebeyonddirectobservation
+UserPrompt
+<image>
+Hereisthepromptgiventothemodel:
+{question}
+Hereisthemodel’sresponse:
+{answer}
+Pleaseanalyzetheimageandadd<hallucination>tagstoanyhallucinatedcontentinthe
+model’sresponse.Remembertotageachhallucinatedcontentseparately!
+H.3 FeedbackPromptTemplates
+Allfourfeedbackmodessharethesamesystempromptanddif-
+feronlyintheusermessage.Thediagnosticgranularityincreases
+progressively: Self-Refine simply informs the target model that
+itspreviousanswerwasincorrectwithoutanyexternaldiagnosis;
+CRITIC-Detprovidesdetection-levelfeedbackbymarkinghallu-
+cinatedspanswithstructuredcorrectioninstructionsbutwithout
