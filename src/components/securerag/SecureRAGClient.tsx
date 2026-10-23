@@ -370,7 +370,7 @@ export default function SecureRAGClient({
       <main>
         {health &&
         health.status !== "healthy" ? (
-          <div className="alert warning">
+          <div className="alert warning" data-testid="health-banner">
             <h2>Platform degraded</h2>
 
             <p>

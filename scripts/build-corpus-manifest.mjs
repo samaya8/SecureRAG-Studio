@@ -160,9 +160,18 @@ const securityLab = {
   ],
 };
 
+// The checked-in manifest must be reproducible: a wall-clock timestamp would
+// make the CI verification fail every time it regenerates the same corpus.
+// The latest document metadata date changes whenever curated corpus metadata
+// changes, while remaining stable for identical inputs.
+const generatedAt = [universityPolicies, ragResearch, securityLab]
+  .flatMap((corpus) => corpus.documents.map((document) => document.uploadedAt))
+  .sort()
+  .at(-1);
+
 const manifest = {
   version: "1.0.0",
-  generatedAt: new Date().toISOString(),
+  generatedAt,
   corpora: [universityPolicies, ragResearch, securityLab],
 };
 
